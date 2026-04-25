@@ -169,6 +169,12 @@ If the fixed-pattern probe still reads `ffffffff`, run the constant TDO probe:
 This is the minimal check that the programmed top is controlling the USER TDO
 inputs.
 
+The constant TDO probe passing while a pattern probe reads `ffffffff` points at
+probe-side reset/loading behavior rather than the raw TDO path. In particular,
+do not reload ER1 pattern registers from `test_logic_reset_o` during scans: the
+DTMCS test pattern has LSB `1`, so repeated reset reloads appear as all-ones
+TDO.
+
 ## Useful commands
 
 Detect the TAP:

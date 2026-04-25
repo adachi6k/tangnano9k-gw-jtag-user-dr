@@ -57,39 +57,30 @@ module pulp_bscan_probe_tangnano9k_top (
         seen_tdi_high     = 1'b0;
     end
 
-    always_ff @(posedge jtck or posedge jreset) begin
-        if (jreset) begin
-            dtmcs_shreg       <= DTMCS_CAPTURE_VALUE;
-            dmi_shreg         <= DMI_CAPTURE_VALUE;
-            seen_dtmcs_select <= 1'b0;
-            seen_dmi_select   <= 1'b0;
-            seen_capture      <= 1'b0;
-            seen_shift        <= 1'b0;
-            seen_update       <= 1'b0;
-            seen_tdi_high     <= 1'b0;
-        end else begin
-            if (dtmcs_select) begin
-                seen_dtmcs_select <= 1'b1;
+    always_ff @(posedge jtck) begin
+        if (dtmcs_select) begin
+            seen_dtmcs_select <= 1'b1;
+        end
+        if (dmi_select) begin
+            seen_dmi_select <= 1'b1;
+        end
+        if (jcapture) begin
+            seen_capture <= 1'b1;
+            dtmcs_shreg <= DTMCS_CAPTURE_VALUE;
+            dmi_shreg   <= DMI_CAPTURE_VALUE;
+        end
+        if (jshift) begin
+            seen_shift <= 1'b1;
+            if (jtdi) begin
+                seen_tdi_high <= 1'b1;
             end
-            if (dmi_select) begin
-                seen_dmi_select <= 1'b1;
-            end
-            if (jcapture) begin
-                seen_capture <= 1'b1;
-                dtmcs_shreg <= DTMCS_CAPTURE_VALUE;
-                dmi_shreg   <= DMI_CAPTURE_VALUE;
-            end
-            if (jshift) begin
-                seen_shift <= 1'b1;
-                if (jtdi) begin
-                    seen_tdi_high <= 1'b1;
-                end
-                dtmcs_shreg <= {jtdi, dtmcs_shreg[31:1]};
-                dmi_shreg   <= {jtdi, dmi_shreg[40:1]};
-            end
-            if (jupdate) begin
-                seen_update <= 1'b1;
-            end
+            dtmcs_shreg <= {jtdi, dtmcs_shreg[31:1]};
+            dmi_shreg   <= {jtdi, dmi_shreg[40:1]};
+        end
+        if (jupdate) begin
+            dtmcs_shreg <= DTMCS_CAPTURE_VALUE;
+            dmi_shreg   <= DMI_CAPTURE_VALUE;
+            seen_update <= 1'b1;
         end
     end
 
