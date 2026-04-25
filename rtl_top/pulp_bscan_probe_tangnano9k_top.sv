@@ -76,24 +76,16 @@ module pulp_bscan_probe_tangnano9k_top (
             end
             if (jcapture) begin
                 seen_capture <= 1'b1;
-                if (dtmcs_select) begin
-                    dtmcs_shreg <= DTMCS_CAPTURE_VALUE;
-                end
-                if (dmi_select) begin
-                    dmi_shreg <= DMI_CAPTURE_VALUE;
-                end
+                dtmcs_shreg <= DTMCS_CAPTURE_VALUE;
+                dmi_shreg   <= DMI_CAPTURE_VALUE;
             end
             if (jshift) begin
                 seen_shift <= 1'b1;
                 if (jtdi) begin
                     seen_tdi_high <= 1'b1;
                 end
-                if (dtmcs_select) begin
-                    dtmcs_shreg <= {jtdi, dtmcs_shreg[31:1]};
-                end
-                if (dmi_select) begin
-                    dmi_shreg <= {jtdi, dmi_shreg[40:1]};
-                end
+                dtmcs_shreg <= {jtdi, dtmcs_shreg[31:1]};
+                dmi_shreg   <= {jtdi, dmi_shreg[40:1]};
             end
             if (jupdate) begin
                 seen_update <= 1'b1;

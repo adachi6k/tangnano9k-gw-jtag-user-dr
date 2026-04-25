@@ -134,6 +134,12 @@ adapter currently derives `capture_o` from the first active cycle of
 `pulp_bscan_probe_tangnano9k_top` bitstream exists to validate this assumption
 before connecting the adapter to a real Debug Module.
 
+The probe readback shifters are intentionally not gated by `enable_er1_o` or
+`enable_er2_o`. This mirrors the earlier minimal LED probes, where the robust
+condition was the USER IR selected by OpenOCD plus `shift_dr_capture_dr_o`.
+The LEDs still latch the derived DTMCS/DMI select observations so enable behavior
+can be inspected independently from the TDO readback path.
+
 Probe expectations:
 
 | Command | IR/DR operation | Expected readback |
