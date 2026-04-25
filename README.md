@@ -3,7 +3,7 @@
 Gowin `GW_JTAG` adapter experiments for using the Tang Nano 9K internal JTAG TAP
 as a PULP `riscv-dbg` DMI transport.
 
-The main artifact is `rtl_top/gowin_dmi_bscan_tap.sv`: a module named
+The main artifact is `rtl/pulp/gowin_dmi_bscan_tap.sv`: a module named
 `dmi_jtag_tap` with the same port shape as PULP's JTAG TAP replacement layer. It
 maps Gowin native USER data registers to the two DMI JTAG data registers used by
 PULP:
@@ -81,14 +81,14 @@ The next validation step is integration with real PULP `dmi_jtag` / `dm_top`:
 
 | Path | Purpose |
 |:-----|:--------|
-| `rtl_top/gowin_dmi_bscan_tap.sv` | PULP `dmi_jtag_tap` pin-compatible Gowin BSCAN adapter |
-| `rtl_top/GW_JTAG.sv` | Gowin `GW_JTAG` black-box declaration |
-| `rtl_top/gowin_jtag_shim.sv` | Small wrapper exposing `GW_JTAG` signals |
-| `rtl_top/pulp_bscan_probe_tangnano9k_top.sv` | Adapter bring-up probe top |
-| `rtl_top/pulp_bscan_fixed_tdo_tangnano9k_top.sv` | Direct fixed-pattern TDO isolation probe |
-| `rtl_top/pulp_bscan_constant_tdo_tangnano9k_top.sv` | Direct constant-low/high TDO isolation probe |
-| `rtl_top/jtag_user_reg_er1_tangnano9k_top.sv` | ER1 / USER1 LED probe |
-| `rtl_top/jtag_user_reg_tangnano9k_top.sv` | ER2 / USER2 LED probe |
+| `rtl/pulp/gowin_dmi_bscan_tap.sv` | PULP `dmi_jtag_tap` pin-compatible Gowin BSCAN adapter |
+| `rtl/gowin/GW_JTAG.sv` | Gowin `GW_JTAG` black-box declaration |
+| `rtl/gowin/gowin_jtag_shim.sv` | Small wrapper exposing `GW_JTAG` signals |
+| `experiments/adapter_probe/pulp_bscan_probe_tangnano9k_top.sv` | Adapter bring-up probe top |
+| `experiments/isolation/pulp_bscan_fixed_tdo_tangnano9k_top.sv` | Direct fixed-pattern TDO isolation probe |
+| `experiments/isolation/pulp_bscan_constant_tdo_tangnano9k_top.sv` | Direct constant-low/high TDO isolation probe |
+| `experiments/user_dr/jtag_user_reg_er1_tangnano9k_top.sv` | ER1 / USER1 LED probe |
+| `experiments/user_dr/jtag_user_reg_tangnano9k_top.sv` | ER2 / USER2 LED probe |
 | `scripts/openocd_gowin_jtag_probe.sh` | OpenOCD script-only raw IR/DR helper |
 
 The older LED and diagnostic probes are kept because they document the Tang Nano

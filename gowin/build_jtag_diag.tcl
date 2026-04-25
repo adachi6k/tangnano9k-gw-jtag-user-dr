@@ -5,7 +5,7 @@ set_device GW1NR-LV9QN88PC6/I5 -device_version C
 
 add_file -type verilog {synth_defines.vh}
 
-set _fp [open {../rtl_jtag_diag.f} r]
+set _fp [open {../filelists/rtl_jtag_diag.f} r]
 foreach _line [split [read $_fp] "\n"] {
     set _line [string trim $_line]
     if {$_line eq "" || [string match "//*" $_line]} { continue }

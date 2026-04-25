@@ -28,12 +28,12 @@ The similarly named files are split by USER path:
 
 | Path | USER path |
 |:-----|:----------|
-| `rtl_top/jtag_user_reg_er1_tangnano9k_top.sv` | ER1 / USER1 |
-| `rtl_top/jtag_user_reg_tangnano9k_top.sv` | ER2 / USER2 |
-| `rtl_top/jtag_diag_er1_tangnano9k_top.sv` | ER1 / USER1 diagnostic |
-| `rtl_top/jtag_diag_tangnano9k_top.sv` | ER2 / USER2 diagnostic |
-| `rtl_top/gowin_dmi_bscan_tap.sv` | PULP-style BSCAN adapter |
-| `rtl_top/pulp_bscan_probe_tangnano9k_top.sv` | PULP-style BSCAN probe |
+| `experiments/user_dr/jtag_user_reg_er1_tangnano9k_top.sv` | ER1 / USER1 |
+| `experiments/user_dr/jtag_user_reg_tangnano9k_top.sv` | ER2 / USER2 |
+| `experiments/user_dr/jtag_diag_er1_tangnano9k_top.sv` | ER1 / USER1 diagnostic |
+| `experiments/user_dr/jtag_diag_tangnano9k_top.sv` | ER2 / USER2 diagnostic |
+| `rtl/pulp/gowin_dmi_bscan_tap.sv` | PULP-style BSCAN adapter |
+| `experiments/adapter_probe/pulp_bscan_probe_tangnano9k_top.sv` | PULP-style BSCAN probe |
 
 ## Reproduction
 
@@ -122,7 +122,7 @@ BSCAN implementation. In that flow, separate `BSCANE2` USER chains provide:
 | TCK/TDI/UPDATE/RESET | native BSCAN outputs | `GW_JTAG` outputs |
 | TDO mux | native BSCAN chain TDO input | `tdo_er1_i` / `tdo_er2_i` |
 
-`rtl_top/gowin_dmi_bscan_tap.sv` is written with the same module name and port
+`rtl/pulp/gowin_dmi_bscan_tap.sv` is written with the same module name and port
 shape as PULP `dmi_jtag_tap`. The intended integration experiment is to compile
 this file instead of PULP's Xilinx `dmi_bscane_tap.sv`, while keeping OpenOCD as
 a script/config-only user of the existing Gowin TAP.
