@@ -157,9 +157,9 @@ sudo make openocd-bscan-fixed-dmi
 ```
 
 This probe bypasses `gowin_dmi_bscan_tap.sv` and drives `tdo_er1_i` /
-`tdo_er2_i` directly from known shift registers. It should read the same
-`00001071` and `0ab2bfaeaf8` patterns. If it does, the raw ER1/ER2 TDO paths are
-healthy and the adapter timing/select logic is the failing layer.
+`tdo_er2_i` directly from known shift registers. It reads the same `00001071`
+and `0ab2bfaeaf8` patterns on hardware after avoiding pattern reload from
+`test_logic_reset_o`. That confirms the raw ER1/ER2 TDO paths are healthy.
 
 If the fixed-pattern probe still reads back `ffffffff`, use the constant TDO
 probe:

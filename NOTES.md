@@ -156,8 +156,16 @@ If the PULP-style probe reads back `ffffffff`, use
 | `sudo make openocd-bscan-fixed-dtmcs` | Direct ER1 fixed-pattern TDO | `00001071` |
 | `sudo make openocd-bscan-fixed-dmi` | Direct ER2 fixed-pattern TDO | `0ab2bfaeaf8` |
 
-A passing fixed-pattern probe means the raw Gowin USER TDO paths are still
-healthy, and the next fix belongs in `gowin_dmi_bscan_tap.sv`.
+After avoiding pattern reload from `test_logic_reset_o`, this fixed-pattern
+probe passes on hardware:
+
+| Command | Observed readback |
+|:--------|:------------------|
+| `sudo make openocd-bscan-fixed-dtmcs` | `00001071` |
+| `sudo make openocd-bscan-fixed-dmi` | `0ab2bfaeaf8` |
+
+This confirms the raw Gowin USER TDO paths are healthy. Any remaining failure in
+`pulp_bscan_probe_tangnano9k_top` belongs in the adapter timing/select layer.
 
 If the fixed-pattern probe still reads `ffffffff`, run the constant TDO probe:
 
