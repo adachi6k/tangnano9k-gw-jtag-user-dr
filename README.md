@@ -1,49 +1,98 @@
-# Tang Nano 9K GW_JTAG USER DR
+# Tang Nano 9K PULP DMI BSCAN
 
-Minimal Tang Nano 9K experiments for accessing user logic through the Gowin
-internal `GW_JTAG` primitive.
+Gowin `GW_JTAG` adapter experiments for using the Tang Nano 9K internal JTAG TAP
+as a PULP `riscv-dbg` DMI transport.
 
-## Result
+The main artifact is `rtl_top/gowin_dmi_bscan_tap.sv`: a module named
+`dmi_jtag_tap` with the same port shape as PULP's JTAG TAP replacement layer. It
+maps Gowin native USER data registers to the two DMI JTAG data registers used by
+PULP:
 
-The verified USER data register paths on Tang Nano 9K are:
+| PULP DMI JTAG register | Gowin USER path | Gowin IR |
+|:-----------------------|:----------------|:---------|
+| DTMCS | ER1 / USER1 | `0x42` |
+| DMIACCESS | ER2 / USER2 | `0x43` |
+
+This follows the same integration idea as PULP's Xilinx `BSCANE2` flow, but uses
+Gowin `GW_JTAG` instead of Xilinx BSCAN primitives.
+
+## Upstream PULP context
+
+- PULP RISC-V debug repository: <https://github.com/pulp-platform/riscv-dbg>
+- Normal soft TAP: [`src/dmi_jtag_tap.sv`](https://github.com/pulp-platform/riscv-dbg/blob/master/src/dmi_jtag_tap.sv)
+- Xilinx BSCAN replacement: [`src/dmi_bscane_tap.sv`](https://github.com/pulp-platform/riscv-dbg/blob/master/src/dmi_bscane_tap.sv)
+
+PULP's `dmi_bscane_tap.sv` is pin-compatible with `dmi_jtag_tap` and replaces
+the full soft TAP with FPGA-native USER chains. This repository provides the
+corresponding Gowin/Tang Nano 9K direction:
+
+```text
+Gowin GW_JTAG
+  ER1 / IR 0x42 -> DTMCS
+  ER2 / IR 0x43 -> DMIACCESS
+        |
+        v
+gowin_dmi_bscan_tap  (module name: dmi_jtag_tap)
+        |
+        v
+PULP dmi_jtag
+        |
+        v
+PULP dm_top
+        |
+        v
+RISC-V core
+```
+
+`GW_JTAG` already provides decoded USER DR scan signals. Do not connect it as if
+it were raw external `TCK` / `TMS` / `TDI` / `TDO` pins into the normal soft TAP.
+
+## Current hardware status
+
+Verified on Tang Nano 9K:
 
 | Item | Value |
 |:-----|:------|
 | FPGA | GW1NR-LV9QN88PC6/I5 |
 | JTAG IDCODE | `0x1100481b` |
 | JTAG IR length | `8` |
-| Verified USER paths | ER1 / USER1 and ER2 / USER2 |
-| Verified USER IRs | `0x42` and `0x43` |
-| Confirmed DR width | `32` bits |
+| USER1 / ER1 IR | `0x42` |
+| USER2 / ER2 IR | `0x43` |
+| ER1 raw TDO control | Passed |
+| ER2 raw TDO control | Passed |
+| PULP-style adapter mapping probe | Passed during bring-up |
 
-`drscan 32 0x0000003f` through either ER1 or ER2 lights all six on-board LEDs
-in the matching probe top. ER1 / IR `0x42` is useful for BSCAN-like integration
-experiments. See [`NOTES.md`](NOTES.md) for the bring-up notes and diagnostics.
+The final `gowin_dmi_bscan_tap.sv` now uses PULP-compatible semantics:
 
-The repository now also includes an experimental PULP-style BSCAN migration
-layer. It maps Gowin ER1 / USER1 to DTMCS and ER2 / USER2 to DMIACCESS, matching
-the two-native-USER-DR shape of PULP's Xilinx `BSCANE2` flow without modifying
-OpenOCD itself.
+- `capture_o` and `shift_o` are mutually exclusive.
+- The first active `shift_dr_capture_dr_o` cycle asserts `capture_o`.
+- Following active `shift_dr_capture_dr_o` cycles assert `shift_o`.
+- `dmi_clear_o` follows Gowin `test_logic_reset_o`.
+- ER1/ER2 selection tracking is reset by Gowin `test_logic_reset_o`.
 
-## File map
+The next validation step is integration with real PULP `dmi_jtag` / `dm_top`:
+
+1. Read DTMCS through IR `0x42`.
+2. Read/write DMIACCESS through IR `0x43`.
+3. Write `dmcontrol.dmactive`.
+4. Read `dmstatus`.
+
+## Key files
 
 | Path | Purpose |
 |:-----|:--------|
-| `rtl_top/jtag_user_reg_er1_tangnano9k_top.sv` | ER1 / USER1 LED probe (`tdo_er1_i`) |
-| `rtl_top/jtag_user_reg_tangnano9k_top.sv` | ER2 / USER2 LED probe (`tdo_er2_i`) |
-| `rtl_top/jtag_diag_er1_tangnano9k_top.sv` | ER1 sticky diagnostic; ties `tdo_er1_i` high |
-| `rtl_top/jtag_diag_tangnano9k_top.sv` | ER2 sticky diagnostic; ties `tdo_er2_i` high |
-| `rtl_top/gowin_dmi_bscan_tap.sv` | PULP `dmi_jtag_tap`-compatible Gowin BSCAN adapter |
-| `rtl_top/pulp_bscan_probe_tangnano9k_top.sv` | Probe top for the PULP-style ER1/ER2 mapping |
-| `rtl_top/pulp_bscan_fixed_tdo_tangnano9k_top.sv` | Direct GW_JTAG fixed-pattern TDO isolation probe |
-| `rtl_top/pulp_bscan_constant_tdo_tangnano9k_top.sv` | Direct GW_JTAG constant-low/high TDO isolation probe |
-| `rtl_jtag_er1_probe.f` | ER1 probe filelist |
-| `rtl_jtag_probe.f` | ER2 probe filelist |
-| `rtl_jtag_er1_diag.f` | ER1 diagnostic filelist |
-| `rtl_jtag_diag.f` | ER2 diagnostic filelist |
-| `rtl_pulp_bscan_probe.f` | PULP-style BSCAN probe filelist |
-| `rtl_pulp_bscan_fixed_tdo.f` | Direct fixed-pattern TDO probe filelist |
-| `rtl_pulp_bscan_constant_tdo.f` | Direct constant TDO probe filelist |
+| `rtl_top/gowin_dmi_bscan_tap.sv` | PULP `dmi_jtag_tap` pin-compatible Gowin BSCAN adapter |
+| `rtl_top/GW_JTAG.sv` | Gowin `GW_JTAG` black-box declaration |
+| `rtl_top/gowin_jtag_shim.sv` | Small wrapper exposing `GW_JTAG` signals |
+| `rtl_top/pulp_bscan_probe_tangnano9k_top.sv` | Adapter bring-up probe top |
+| `rtl_top/pulp_bscan_fixed_tdo_tangnano9k_top.sv` | Direct fixed-pattern TDO isolation probe |
+| `rtl_top/pulp_bscan_constant_tdo_tangnano9k_top.sv` | Direct constant-low/high TDO isolation probe |
+| `rtl_top/jtag_user_reg_er1_tangnano9k_top.sv` | ER1 / USER1 LED probe |
+| `rtl_top/jtag_user_reg_tangnano9k_top.sv` | ER2 / USER2 LED probe |
+| `scripts/openocd_gowin_jtag_probe.sh` | OpenOCD script-only raw IR/DR helper |
+
+The older LED and diagnostic probes are kept because they document the Tang Nano
+9K `GW_JTAG` bring-up path and are useful when debugging USER DR behavior.
 
 ## Requirements
 
@@ -58,104 +107,39 @@ If `gw_sh` is not in `PATH`, set `GW_SH`:
 export GW_SH=/opt/gowin_edu/IDE/bin/gw_sh
 ```
 
-## Build and program
+## Build the PULP-style adapter probe
 
-Build the USER DR LED probe:
-
-```bash
-make gowin-jtag-probe
-```
-
-Program it to SRAM:
-
-```bash
-sudo make gowin-jtag-probe-prog
-```
-
-Light all six LEDs through USER2 / ER2:
-
-```bash
-sudo make openocd-led-on-er2
-```
-
-`openocd-led-on` is kept as an alias for `openocd-led-on-er2`.
-
-Build, program, and test the ER1 / USER1 probe:
-
-```bash
-make gowin-jtag-er1-probe
-sudo make gowin-jtag-er1-probe-prog
-sudo make openocd-led-on-er1
-```
-
-Equivalent OpenOCD sequence:
-
-```tcl
-irscan gowin.fpga 0x43
-drscan gowin.fpga 32 0x0000003f
-```
-
-Equivalent ER1 sequence:
-
-```tcl
-irscan gowin.fpga 0x42
-drscan gowin.fpga 32 0x0000003f
-```
-
-## PULP-style BSCAN probe
-
-Build and program the PULP-style BSCAN probe:
+Build and program the adapter probe:
 
 ```bash
 make gowin-pulp-bscan-probe
 sudo make gowin-pulp-bscan-probe-prog
 ```
 
-The migration mapping is:
-
-| PULP-style DR | Gowin USER path | IR | Probe DR width |
-|:--------------|:----------------|:---|:---------------|
-| DTMCS | ER1 / USER1 | `0x42` | `32` |
-| DMIACCESS | ER2 / USER2 | `0x43` | `41` |
-
-Read the probe DTMCS register:
+Read the DTMCS-like probe register on ER1:
 
 ```bash
 sudo make openocd-bscan-dtmcs
 ```
 
-The standalone probe pattern for this DR is `00001071`.
-
-Read the probe DMIACCESS register:
+Read the DMIACCESS-like probe register on ER2:
 
 ```bash
 sudo make openocd-bscan-dmi
 ```
 
-The standalone probe pattern for this DR is `0ab2bfaeaf8`.
+Bring-up probe patterns:
 
-Earlier adapter-probe bring-up confirmed this ER1/ER2 mapping on Tang Nano 9K
-hardware:
+| Command | IR/DR operation | Pattern |
+|:--------|:----------------|:--------|
+| `sudo make openocd-bscan-dtmcs` | `irscan 0x42`, `drscan 32 0` | `00001071` |
+| `sudo make openocd-bscan-dmi` | `irscan 0x43`, `drscan 41 0` | `0ab2bfaeaf8` |
 
-| Command | Observed readback |
-|:--------|:------------------|
-| `sudo make openocd-bscan-dtmcs` | `00001071` |
-| `sudo make openocd-bscan-dmi` | `0ab2bfaeaf8` |
+## Isolation probes
 
-For real PULP integration, `gowin_dmi_bscan_tap.sv` keeps `capture_o` and
-`shift_o` mutually exclusive: the first active `shift_dr_capture_dr_o` cycle
-asserts `capture_o`, and following active cycles assert `shift_o`. `dmi_clear_o`
-is driven from the Gowin JTAG reset output so PULP DMI/JTAG state can be cleared
-when the native TAP resets.
+Use these only when the adapter probe result is confusing.
 
-`rtl_top/gowin_dmi_bscan_tap.sv` intentionally uses the same module name and
-port shape as PULP `dmi_jtag_tap`, so it can be evaluated as a replacement for
-PULP's Xilinx `dmi_bscane_tap.sv`. The next integration step is connecting this
-adapter to PULP `dmi_jtag` / `dm_top` and checking `DTMCS`, `DMIACCESS`,
-`dmcontrol.dmactive`, and `dmstatus`.
-
-If the PULP-style probe reads back `ffffffff`, program the direct fixed-pattern
-TDO isolation probe:
+Direct fixed-pattern TDO probe:
 
 ```bash
 make gowin-pulp-bscan-fixed-tdo
@@ -164,13 +148,14 @@ sudo make openocd-bscan-fixed-dtmcs
 sudo make openocd-bscan-fixed-dmi
 ```
 
-This probe bypasses `gowin_dmi_bscan_tap.sv` and drives `tdo_er1_i` /
-`tdo_er2_i` directly from known shift registers. It reads the same `00001071`
-and `0ab2bfaeaf8` patterns on hardware after avoiding pattern reload from
-`test_logic_reset_o`. That confirms the raw ER1/ER2 TDO paths are healthy.
+Expected readback:
 
-If the fixed-pattern probe still reads back `ffffffff`, use the constant TDO
-probe:
+| Command | Expected |
+|:--------|:---------|
+| `sudo make openocd-bscan-fixed-dtmcs` | `00001071` |
+| `sudo make openocd-bscan-fixed-dmi` | `0ab2bfaeaf8` |
+
+Direct constant TDO probe:
 
 ```bash
 make gowin-pulp-bscan-constant-tdo
@@ -179,37 +164,37 @@ sudo make openocd-bscan-constant-er1
 sudo make openocd-bscan-constant-er2
 ```
 
-This ties ER1 TDO low and ER2 TDO high. Expected readback is `00000000` for ER1
-and `ffffffff` for ER2. If ER1 still reads `ffffffff`, the issue is not the
-shift-register pattern logic.
+Expected readback:
 
-## Diagnostics
+| Command | Expected |
+|:--------|:---------|
+| `sudo make openocd-bscan-constant-er1` | `00000000` |
+| `sudo make openocd-bscan-constant-er2` | `ffffffff` |
 
-Build and program the sticky diagnostic top:
+## Basic USER DR probes
 
-```bash
-make gowin-jtag-diag
-sudo make gowin-jtag-diag-prog
-```
-
-Run an ER2 scan:
+The original USER DR LED probes are still available:
 
 ```bash
-cd scripts
-sudo ./openocd_gowin_jtag_probe.sh drscan-ir 0x43 0x0000003f
+make gowin-jtag-probe
+sudo make gowin-jtag-probe-prog
+sudo make openocd-led-on-er2
+
+make gowin-jtag-er1-probe
+sudo make gowin-jtag-er1-probe-prog
+sudo make openocd-led-on-er1
 ```
 
-The diagnostic top ties `tdo_er2_i` high, so a working ER2 TDO path reads back
-`ffffffff`.
+Equivalent raw OpenOCD operations:
 
-For ER1 diagnostics:
+```tcl
+irscan gowin.fpga 0x42
+drscan gowin.fpga 32 0x0000003f
 
-```bash
-make gowin-jtag-er1-diag
-sudo make gowin-jtag-er1-diag-prog
-cd scripts
-sudo ./openocd_gowin_jtag_probe.sh drscan-ir 0x42 0x0000003f
+irscan gowin.fpga 0x43
+drscan gowin.fpga 32 0x0000003f
 ```
 
-The ER1 diagnostic top ties `tdo_er1_i` high, so a working ER1 TDO path reads
-back `ffffffff`.
+## License
+
+MIT. See [`LICENSE`](LICENSE).

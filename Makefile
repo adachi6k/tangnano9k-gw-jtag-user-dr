@@ -1,4 +1,4 @@
-# Tang Nano 9K GW_JTAG USER DR experiments
+# Tang Nano 9K PULP DMI BSCAN experiments
 
 .PHONY: gowin-jtag-probe gowin-jtag-probe-prog
 .PHONY: gowin-jtag-diag gowin-jtag-diag-prog

@@ -1,4 +1,4 @@
-# Tang Nano 9K GW_JTAG USER DR Bring-up
+# Tang Nano 9K PULP DMI BSCAN Bring-up
 
 This note records the Tang Nano 9K `GW_JTAG` USER data register bring-up result.
 
