@@ -1,0 +1,7 @@
+gowin/impl/
+*.log
+*.fs
+*.bin
+*.binx
+*.fst
+*.vcd
