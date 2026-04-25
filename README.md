@@ -20,6 +20,19 @@ The verified USER data register paths on Tang Nano 9K are:
 in the matching probe top. ER1 / IR `0x42` is useful for BSCAN-like integration
 experiments. See [`NOTES.md`](NOTES.md) for the bring-up notes and diagnostics.
 
+## File map
+
+| Path | Purpose |
+|:-----|:--------|
+| `rtl_top/jtag_user_reg_er1_tangnano9k_top.sv` | ER1 / USER1 LED probe (`tdo_er1_i`) |
+| `rtl_top/jtag_user_reg_tangnano9k_top.sv` | ER2 / USER2 LED probe (`tdo_er2_i`) |
+| `rtl_top/jtag_diag_er1_tangnano9k_top.sv` | ER1 sticky diagnostic; ties `tdo_er1_i` high |
+| `rtl_top/jtag_diag_tangnano9k_top.sv` | ER2 sticky diagnostic; ties `tdo_er2_i` high |
+| `rtl_jtag_er1_probe.f` | ER1 probe filelist |
+| `rtl_jtag_probe.f` | ER2 probe filelist |
+| `rtl_jtag_er1_diag.f` | ER1 diagnostic filelist |
+| `rtl_jtag_diag.f` | ER2 diagnostic filelist |
+
 ## Requirements
 
 - Gowin EDA with `gw_sh`
@@ -50,8 +63,10 @@ sudo make gowin-jtag-probe-prog
 Light all six LEDs through USER2 / ER2:
 
 ```bash
-sudo make openocd-led-on
+sudo make openocd-led-on-er2
 ```
+
+`openocd-led-on` is kept as an alias for `openocd-led-on-er2`.
 
 Build, program, and test the ER1 / USER1 probe:
 

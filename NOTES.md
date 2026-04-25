@@ -20,6 +20,15 @@ The verified USER data register paths are:
 ER2 / USER2 (`0x43`) was confirmed first. ER1 / USER1 (`0x42`) was then
 retested with the same direct-shift conditions and also worked.
 
+The similarly named files are split by USER path:
+
+| Path | USER path |
+|:-----|:----------|
+| `rtl_top/jtag_user_reg_er1_tangnano9k_top.sv` | ER1 / USER1 |
+| `rtl_top/jtag_user_reg_tangnano9k_top.sv` | ER2 / USER2 |
+| `rtl_top/jtag_diag_er1_tangnano9k_top.sv` | ER1 / USER1 diagnostic |
+| `rtl_top/jtag_diag_tangnano9k_top.sv` | ER2 / USER2 diagnostic |
+
 ## Reproduction
 
 Build and program the ER2 USER DR probe bitstream:
