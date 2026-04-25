@@ -124,8 +124,7 @@ Read the probe DTMCS register:
 sudo make openocd-bscan-dtmcs
 ```
 
-Expected probe readback is `00001071` when the derived capture/shift timing
-matches the Gowin primitive behavior.
+The standalone probe pattern for this DR is `00001071`.
 
 Read the probe DMIACCESS register:
 
@@ -133,24 +132,27 @@ Read the probe DMIACCESS register:
 sudo make openocd-bscan-dmi
 ```
 
-Expected probe readback is `0ab2bfaeaf8`.
+The standalone probe pattern for this DR is `0ab2bfaeaf8`.
 
-These adapter probe readbacks have been confirmed on Tang Nano 9K hardware:
+Earlier adapter-probe bring-up confirmed this ER1/ER2 mapping on Tang Nano 9K
+hardware:
 
 | Command | Observed readback |
 |:--------|:------------------|
 | `sudo make openocd-bscan-dtmcs` | `00001071` |
 | `sudo make openocd-bscan-dmi` | `0ab2bfaeaf8` |
 
-The probe readback registers intentionally capture and shift on GW_JTAG DR
-activity without gating by `enable_er1_o` or `enable_er2_o`. The LED bits still
-record whether those enable signals were observed, but readback validation only
-depends on the USER DR TDO path and derived capture/shift timing.
+For real PULP integration, `gowin_dmi_bscan_tap.sv` keeps `capture_o` and
+`shift_o` mutually exclusive: the first active `shift_dr_capture_dr_o` cycle
+asserts `capture_o`, and following active cycles assert `shift_o`. `dmi_clear_o`
+is driven from the Gowin JTAG reset output so PULP DMI/JTAG state can be cleared
+when the native TAP resets.
 
 `rtl_top/gowin_dmi_bscan_tap.sv` intentionally uses the same module name and
 port shape as PULP `dmi_jtag_tap`, so it can be evaluated as a replacement for
 PULP's Xilinx `dmi_bscane_tap.sv`. The next integration step is connecting this
-adapter to a real PULP/RISC-V Debug Module.
+adapter to PULP `dmi_jtag` / `dm_top` and checking `DTMCS`, `DMIACCESS`,
+`dmcontrol.dmactive`, and `dmstatus`.
 
 If the PULP-style probe reads back `ffffffff`, program the direct fixed-pattern
 TDO isolation probe:

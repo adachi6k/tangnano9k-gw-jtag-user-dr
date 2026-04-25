@@ -128,11 +128,11 @@ this file instead of PULP's Xilinx `dmi_bscane_tap.sv`, while keeping OpenOCD as
 a script/config-only user of the existing Gowin TAP.
 
 The main timing caveat is capture. `GW_JTAG` exposes `shift_dr_capture_dr_o`
-rather than separate `CAPTURE` and `SHIFT` outputs like Xilinx `BSCANE2`. The
-adapter currently derives `capture_o` from the first active cycle of
-`shift_dr_capture_dr_o` and maps `shift_o` directly from `shift_dr_capture_dr_o`.
-The `pulp_bscan_probe_tangnano9k_top` bitstream validates this mapping before
-connecting the adapter to a real Debug Module.
+rather than separate `CAPTURE` and `SHIFT` outputs like Xilinx `BSCANE2`. For
+PULP integration, the adapter derives `capture_o` from the first active cycle of
+`shift_dr_capture_dr_o` and `shift_o` from following active cycles, so they are
+not asserted in the same TCK cycle. `dmi_clear_o` follows `test_logic_reset_o`
+from the Gowin primitive.
 
 The probe readback shifters are intentionally not gated by `enable_er1_o` or
 `enable_er2_o`. This mirrors the earlier minimal LED probes, where the robust
@@ -147,8 +147,8 @@ Probe expectations:
 | `sudo make openocd-bscan-dtmcs` | `irscan 0x42`, `drscan 32 0` | `00001071` |
 | `sudo make openocd-bscan-dmi` | `irscan 0x43`, `drscan 41 0` | `0ab2bfaeaf8` |
 
-After mapping adapter `shift_o` directly from `shift_dr_capture_dr_o`, the
-PULP-style adapter probe passes on hardware:
+During bring-up, a standalone adapter probe using direct shift behavior passed
+on hardware and confirmed the ER1/ER2 USER DR mapping:
 
 | Command | Observed readback |
 |:--------|:------------------|
@@ -191,11 +191,14 @@ do not reload ER1 pattern registers from `test_logic_reset_o` during scans: the
 DTMCS test pattern has LSB `1`, so repeated reset reloads appear as all-ones
 TDO.
 
-The same applies inside the adapter. The first adapter probe failure
-(`ffffffff` for DTMCS and zeros for DMIACCESS) showed that using
-`test_logic_reset_o` to reset the adapter's shift/capture state can suppress
-`shift_o` during scans. The adapter therefore leaves `dmi_clear_o` deasserted
-and maps `shift_o` directly from `shift_dr_capture_dr_o`.
+The first adapter-probe pass used direct-shift bring-up semantics to prove the
+ER1/ER2 USER DR mapping. For the real PULP-compatible adapter, the final
+integration semantics are stricter than that bring-up probe: `capture_o` and
+`shift_o` are mutually exclusive, selection tracking resets on
+`test_logic_reset_o`, and `dmi_clear_o` is connected to the Gowin JTAG reset.
+The next validation step is a real PULP `dmi_jtag` / `dm_top` connection,
+checking DTMCS read through IR `0x42`, DMIACCESS read/write through IR `0x43`,
+`dmcontrol.dmactive` write, and `dmstatus` read.
 
 ## Useful commands
 

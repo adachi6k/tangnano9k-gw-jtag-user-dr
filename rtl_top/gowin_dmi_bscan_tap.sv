@@ -49,22 +49,28 @@ module dmi_jtag_tap #(
         .jtdo_er2       (dmi_tdo_i)
     );
 
-    always_ff @(posedge jtck) begin
-        jshift_capture_q <= jshift_capture;
-        if (jen_er1) begin
-            dtmcs_selected <= 1'b1;
-            dmi_selected   <= 1'b0;
-        end else if (jen_er2) begin
-            dtmcs_selected <= 1'b0;
-            dmi_selected   <= 1'b1;
+    always_ff @(posedge jtck or posedge jreset) begin
+        if (jreset) begin
+            jshift_capture_q <= 1'b0;
+            dtmcs_selected   <= 1'b0;
+            dmi_selected     <= 1'b0;
+        end else begin
+            jshift_capture_q <= jshift_capture;
+            if (jen_er1) begin
+                dtmcs_selected <= 1'b1;
+                dmi_selected   <= 1'b0;
+            end else if (jen_er2) begin
+                dtmcs_selected <= 1'b0;
+                dmi_selected   <= 1'b1;
+            end
         end
     end
 
     assign tck_o          = jtck;
-    assign dmi_clear_o    = 1'b0;
+    assign dmi_clear_o    = jreset;
     assign update_o       = jupdate;
     assign capture_o      = jshift_capture & ~jshift_capture_q;
-    assign shift_o        = jshift_capture;
+    assign shift_o        = jshift_capture & jshift_capture_q;
     assign tdi_o          = jtdi;
     assign dtmcs_select_o = jen_er1 | (dtmcs_selected & ~jen_er2);
     assign dmi_select_o   = jen_er2 | (dmi_selected & ~jen_er1);
@@ -79,7 +85,7 @@ module dmi_jtag_tap #(
         trst_ni,
         td_i,
         testmode_i,
-        jreset ^ jidle_er1 ^ jidle_er2
+        jidle_er1 ^ jidle_er2
     };
 
     logic unused_idcode;
