@@ -20,6 +20,11 @@ The verified USER data register paths on Tang Nano 9K are:
 in the matching probe top. ER1 / IR `0x42` is useful for BSCAN-like integration
 experiments. See [`NOTES.md`](NOTES.md) for the bring-up notes and diagnostics.
 
+The repository now also includes an experimental PULP-style BSCAN migration
+layer. It maps Gowin ER1 / USER1 to DTMCS and ER2 / USER2 to DMIACCESS, matching
+the two-native-USER-DR shape of PULP's Xilinx `BSCANE2` flow without modifying
+OpenOCD itself.
+
 ## File map
 
 | Path | Purpose |
@@ -28,10 +33,13 @@ experiments. See [`NOTES.md`](NOTES.md) for the bring-up notes and diagnostics.
 | `rtl_top/jtag_user_reg_tangnano9k_top.sv` | ER2 / USER2 LED probe (`tdo_er2_i`) |
 | `rtl_top/jtag_diag_er1_tangnano9k_top.sv` | ER1 sticky diagnostic; ties `tdo_er1_i` high |
 | `rtl_top/jtag_diag_tangnano9k_top.sv` | ER2 sticky diagnostic; ties `tdo_er2_i` high |
+| `rtl_top/gowin_dmi_bscan_tap.sv` | PULP `dmi_jtag_tap`-compatible Gowin BSCAN adapter |
+| `rtl_top/pulp_bscan_probe_tangnano9k_top.sv` | Probe top for the PULP-style ER1/ER2 mapping |
 | `rtl_jtag_er1_probe.f` | ER1 probe filelist |
 | `rtl_jtag_probe.f` | ER2 probe filelist |
 | `rtl_jtag_er1_diag.f` | ER1 diagnostic filelist |
 | `rtl_jtag_diag.f` | ER2 diagnostic filelist |
+| `rtl_pulp_bscan_probe.f` | PULP-style BSCAN probe filelist |
 
 ## Requirements
 
@@ -89,6 +97,45 @@ Equivalent ER1 sequence:
 irscan gowin.fpga 0x42
 drscan gowin.fpga 32 0x0000003f
 ```
+
+## PULP-style BSCAN probe
+
+Build and program the PULP-style BSCAN probe:
+
+```bash
+make gowin-pulp-bscan-probe
+sudo make gowin-pulp-bscan-probe-prog
+```
+
+The migration mapping is:
+
+| PULP-style DR | Gowin USER path | IR | Probe DR width |
+|:--------------|:----------------|:---|:---------------|
+| DTMCS | ER1 / USER1 | `0x42` | `32` |
+| DMIACCESS | ER2 / USER2 | `0x43` | `41` |
+
+Read the probe DTMCS register:
+
+```bash
+sudo make openocd-bscan-dtmcs
+```
+
+Expected probe readback is `00001071` when the derived capture/shift timing
+matches the Gowin primitive behavior.
+
+Read the probe DMIACCESS register:
+
+```bash
+sudo make openocd-bscan-dmi
+```
+
+Expected probe readback is `0ab2bfaeaf8`.
+
+`rtl_top/gowin_dmi_bscan_tap.sv` intentionally uses the same module name and
+port shape as PULP `dmi_jtag_tap`, so it can be evaluated as a replacement for
+PULP's Xilinx `dmi_bscane_tap.sv`. This is still an integration step: connect it
+to a real PULP/RISC-V Debug Module only after the probe readbacks above are
+confirmed on hardware.
 
 ## Diagnostics
 

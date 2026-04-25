@@ -20,6 +20,10 @@ The verified USER data register paths are:
 ER2 / USER2 (`0x43`) was confirmed first. ER1 / USER1 (`0x42`) was then
 retested with the same direct-shift conditions and also worked.
 
+This makes a PULP Xilinx `BSCANE2`-style migration plausible: use two Gowin
+native USER DRs instead of creating a soft TAP. The current experimental mapping
+is ER1 / `0x42` for DTMCS and ER2 / `0x43` for DMIACCESS.
+
 The similarly named files are split by USER path:
 
 | Path | USER path |
@@ -28,6 +32,8 @@ The similarly named files are split by USER path:
 | `rtl_top/jtag_user_reg_tangnano9k_top.sv` | ER2 / USER2 |
 | `rtl_top/jtag_diag_er1_tangnano9k_top.sv` | ER1 / USER1 diagnostic |
 | `rtl_top/jtag_diag_tangnano9k_top.sv` | ER2 / USER2 diagnostic |
+| `rtl_top/gowin_dmi_bscan_tap.sv` | PULP-style BSCAN adapter |
+| `rtl_top/pulp_bscan_probe_tangnano9k_top.sv` | PULP-style BSCAN probe |
 
 ## Reproduction
 
@@ -104,6 +110,37 @@ The probes also do not gate shifting with `enable_er1_o` or `enable_er2_o`; the
 observed useful control signal for this minimal test is `shift_dr_capture_dr_o`,
 with OpenOCD selecting ER1 (`0x42`) or ER2 (`0x43`) through IR scan.
 
+## PULP-style BSCAN migration notes
+
+PULP's Xilinx flow replaces the normal soft `dmi_jtag_tap` with a native-FPGA
+BSCAN implementation. In that flow, separate `BSCANE2` USER chains provide:
+
+| Function | Xilinx/PULP shape | Gowin experiment |
+|:---------|:------------------|:-----------------|
+| DTMCS DR | native USER chain selected by a USER IR | ER1 / USER1, IR `0x42` |
+| DMIACCESS DR | another native USER chain selected by a USER IR | ER2 / USER2, IR `0x43` |
+| TCK/TDI/UPDATE/RESET | native BSCAN outputs | `GW_JTAG` outputs |
+| TDO mux | native BSCAN chain TDO input | `tdo_er1_i` / `tdo_er2_i` |
+
+`rtl_top/gowin_dmi_bscan_tap.sv` is written with the same module name and port
+shape as PULP `dmi_jtag_tap`. The intended integration experiment is to compile
+this file instead of PULP's Xilinx `dmi_bscane_tap.sv`, while keeping OpenOCD as
+a script/config-only user of the existing Gowin TAP.
+
+The main timing caveat is capture. `GW_JTAG` exposes `shift_dr_capture_dr_o`
+rather than separate `CAPTURE` and `SHIFT` outputs like Xilinx `BSCANE2`. The
+adapter currently derives `capture_o` from the first active cycle of
+`shift_dr_capture_dr_o` and `shift_o` from following active cycles. The
+`pulp_bscan_probe_tangnano9k_top` bitstream exists to validate this assumption
+before connecting the adapter to a real Debug Module.
+
+Probe expectations:
+
+| Command | IR/DR operation | Expected readback |
+|:--------|:----------------|:------------------|
+| `sudo make openocd-bscan-dtmcs` | `irscan 0x42`, `drscan 32 0` | `00001071` |
+| `sudo make openocd-bscan-dmi` | `irscan 0x43`, `drscan 41 0` | `0ab2bfaeaf8` |
+
 ## Useful commands
 
 Detect the TAP:
@@ -141,4 +178,13 @@ GW_SH=/opt/gowin_edu/IDE/bin/gw_sh make gowin-jtag-er1-diag
 sudo make gowin-jtag-er1-diag-prog
 cd scripts
 sudo ./openocd_gowin_jtag_probe.sh drscan-ir 0x42 0x0000003f
+```
+
+Run the PULP-style BSCAN probe:
+
+```bash
+GW_SH=/opt/gowin_edu/IDE/bin/gw_sh make gowin-pulp-bscan-probe
+sudo make gowin-pulp-bscan-probe-prog
+sudo make openocd-bscan-dtmcs
+sudo make openocd-bscan-dmi
 ```

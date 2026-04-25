@@ -9,6 +9,9 @@
 #   ./scripts/openocd_gowin_jtag_probe.sh led-on-er2
 #   ./scripts/openocd_gowin_jtag_probe.sh drscan 0x0000003f
 #   ./scripts/openocd_gowin_jtag_probe.sh drscan-ir 0x43 0x0000003f
+#   ./scripts/openocd_gowin_jtag_probe.sh drscan-bits-ir 0x42 32 0x0
+#   ./scripts/openocd_gowin_jtag_probe.sh bscan-dtmcs
+#   ./scripts/openocd_gowin_jtag_probe.sh bscan-dmi
 #   ./scripts/openocd_gowin_jtag_probe.sh server
 
 set -euo pipefail
@@ -22,6 +25,9 @@ Usage:
   openocd_gowin_jtag_probe.sh led-on-er2
   openocd_gowin_jtag_probe.sh drscan <32-bit-value>
   openocd_gowin_jtag_probe.sh drscan-ir <8-bit-ir> <32-bit-value>
+  openocd_gowin_jtag_probe.sh drscan-bits-ir <8-bit-ir> <bit-count> <value>
+  openocd_gowin_jtag_probe.sh bscan-dtmcs
+  openocd_gowin_jtag_probe.sh bscan-dmi
   openocd_gowin_jtag_probe.sh server
 
 Environment overrides:
@@ -34,6 +40,8 @@ Notes:
   - Run with sudo if OpenOCD cannot open the FTDI device in WSL.
   - "led-on" and "led-on-er2" shift USER IR 0x43 then USER DR 0x0000003f.
   - "led-on-er1" shifts USER IR 0x42 then USER DR 0x0000003f.
+  - "bscan-dtmcs" reads the PULP-style DTMCS DR on ER1 / IR 0x42.
+  - "bscan-dmi" reads the PULP-style DMIACCESS DR on ER2 / IR 0x43.
 EOF
 }
 
@@ -114,6 +122,38 @@ case "${mode}" in
             -c "scan_chain"
             -c "irscan gowin.fpga $1"
             -c "drscan gowin.fpga 32 $2"
+            -c "exit"
+        )
+        ;;
+    drscan-bits-ir)
+        if [[ $# -ne 3 ]]; then
+            echo "error: drscan-bits-ir requires an IR value, bit count, and DR value" >&2
+            usage >&2
+            exit 1
+        fi
+        openocd_args+=(
+            -c "init"
+            -c "scan_chain"
+            -c "irscan gowin.fpga $1"
+            -c "drscan gowin.fpga $2 $3"
+            -c "exit"
+        )
+        ;;
+    bscan-dtmcs)
+        openocd_args+=(
+            -c "init"
+            -c "scan_chain"
+            -c "irscan gowin.fpga 0x42"
+            -c "drscan gowin.fpga 32 0x00000000"
+            -c "exit"
+        )
+        ;;
+    bscan-dmi)
+        openocd_args+=(
+            -c "init"
+            -c "scan_chain"
+            -c "irscan gowin.fpga 0x43"
+            -c "drscan gowin.fpga 41 0x00000000000"
             -c "exit"
         )
         ;;
