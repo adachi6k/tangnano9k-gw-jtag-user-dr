@@ -183,6 +183,12 @@ do not reload ER1 pattern registers from `test_logic_reset_o` during scans: the
 DTMCS test pattern has LSB `1`, so repeated reset reloads appear as all-ones
 TDO.
 
+The same applies inside the adapter. The first adapter probe failure
+(`ffffffff` for DTMCS and zeros for DMIACCESS) showed that using
+`test_logic_reset_o` to reset the adapter's shift/capture state can suppress
+`shift_o` during scans. The adapter therefore leaves `dmi_clear_o` deasserted
+and maps `shift_o` directly from `shift_dr_capture_dr_o`.
+
 ## Useful commands
 
 Detect the TAP:
