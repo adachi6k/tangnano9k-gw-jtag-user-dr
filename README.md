@@ -36,12 +36,14 @@ OpenOCD itself.
 | `rtl_top/gowin_dmi_bscan_tap.sv` | PULP `dmi_jtag_tap`-compatible Gowin BSCAN adapter |
 | `rtl_top/pulp_bscan_probe_tangnano9k_top.sv` | Probe top for the PULP-style ER1/ER2 mapping |
 | `rtl_top/pulp_bscan_fixed_tdo_tangnano9k_top.sv` | Direct GW_JTAG fixed-pattern TDO isolation probe |
+| `rtl_top/pulp_bscan_constant_tdo_tangnano9k_top.sv` | Direct GW_JTAG constant-low/high TDO isolation probe |
 | `rtl_jtag_er1_probe.f` | ER1 probe filelist |
 | `rtl_jtag_probe.f` | ER2 probe filelist |
 | `rtl_jtag_er1_diag.f` | ER1 diagnostic filelist |
 | `rtl_jtag_diag.f` | ER2 diagnostic filelist |
 | `rtl_pulp_bscan_probe.f` | PULP-style BSCAN probe filelist |
 | `rtl_pulp_bscan_fixed_tdo.f` | Direct fixed-pattern TDO probe filelist |
+| `rtl_pulp_bscan_constant_tdo.f` | Direct constant TDO probe filelist |
 
 ## Requirements
 
@@ -158,6 +160,20 @@ This probe bypasses `gowin_dmi_bscan_tap.sv` and drives `tdo_er1_i` /
 `tdo_er2_i` directly from known shift registers. It should read the same
 `00001071` and `0ab2bfaeaf8` patterns. If it does, the raw ER1/ER2 TDO paths are
 healthy and the adapter timing/select logic is the failing layer.
+
+If the fixed-pattern probe still reads back `ffffffff`, use the constant TDO
+probe:
+
+```bash
+make gowin-pulp-bscan-constant-tdo
+sudo make gowin-pulp-bscan-constant-tdo-prog
+sudo make openocd-bscan-constant-er1
+sudo make openocd-bscan-constant-er2
+```
+
+This ties ER1 TDO low and ER2 TDO high. Expected readback is `00000000` for ER1
+and `ffffffff` for ER2. If ER1 still reads `ffffffff`, the issue is not the
+shift-register pattern logic.
 
 ## Diagnostics
 

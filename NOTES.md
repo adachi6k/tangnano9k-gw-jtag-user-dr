@@ -159,6 +159,16 @@ If the PULP-style probe reads back `ffffffff`, use
 A passing fixed-pattern probe means the raw Gowin USER TDO paths are still
 healthy, and the next fix belongs in `gowin_dmi_bscan_tap.sv`.
 
+If the fixed-pattern probe still reads `ffffffff`, run the constant TDO probe:
+
+| Command | Purpose | Expected readback |
+|:--------|:--------|:------------------|
+| `sudo make openocd-bscan-constant-er1` | ER1 TDO tied low | `00000000` |
+| `sudo make openocd-bscan-constant-er2` | ER2 TDO tied high | `ffffffff` |
+
+This is the minimal check that the programmed top is controlling the USER TDO
+inputs.
+
 ## Useful commands
 
 Detect the TAP:
@@ -214,4 +224,13 @@ GW_SH=/opt/gowin_edu/IDE/bin/gw_sh make gowin-pulp-bscan-fixed-tdo
 sudo make gowin-pulp-bscan-fixed-tdo-prog
 sudo make openocd-bscan-fixed-dtmcs
 sudo make openocd-bscan-fixed-dmi
+```
+
+Run the constant TDO isolation probe:
+
+```bash
+GW_SH=/opt/gowin_edu/IDE/bin/gw_sh make gowin-pulp-bscan-constant-tdo
+sudo make gowin-pulp-bscan-constant-tdo-prog
+sudo make openocd-bscan-constant-er1
+sudo make openocd-bscan-constant-er2
 ```

@@ -14,6 +14,8 @@
 #   ./scripts/openocd_gowin_jtag_probe.sh bscan-dmi
 #   ./scripts/openocd_gowin_jtag_probe.sh bscan-fixed-dtmcs
 #   ./scripts/openocd_gowin_jtag_probe.sh bscan-fixed-dmi
+#   ./scripts/openocd_gowin_jtag_probe.sh bscan-constant-er1
+#   ./scripts/openocd_gowin_jtag_probe.sh bscan-constant-er2
 #   ./scripts/openocd_gowin_jtag_probe.sh server
 
 set -euo pipefail
@@ -32,6 +34,8 @@ Usage:
   openocd_gowin_jtag_probe.sh bscan-dmi
   openocd_gowin_jtag_probe.sh bscan-fixed-dtmcs
   openocd_gowin_jtag_probe.sh bscan-fixed-dmi
+  openocd_gowin_jtag_probe.sh bscan-constant-er1
+  openocd_gowin_jtag_probe.sh bscan-constant-er2
   openocd_gowin_jtag_probe.sh server
 
 Environment overrides:
@@ -47,6 +51,7 @@ Notes:
   - "bscan-dtmcs" reads the PULP-style DTMCS DR on ER1 / IR 0x42.
   - "bscan-dmi" reads the PULP-style DMIACCESS DR on ER2 / IR 0x43.
   - "bscan-fixed-*" reads the direct GW_JTAG fixed-pattern TDO probe.
+  - "bscan-constant-er1" expects all-zero readback; "bscan-constant-er2" expects all-one readback.
 EOF
 }
 
@@ -177,6 +182,24 @@ case "${mode}" in
             -c "scan_chain"
             -c "irscan gowin.fpga 0x43"
             -c "drscan gowin.fpga 41 0x00000000000"
+            -c "exit"
+        )
+        ;;
+    bscan-constant-er1)
+        openocd_args+=(
+            -c "init"
+            -c "scan_chain"
+            -c "irscan gowin.fpga 0x42"
+            -c "drscan gowin.fpga 32 0x00000000"
+            -c "exit"
+        )
+        ;;
+    bscan-constant-er2)
+        openocd_args+=(
+            -c "init"
+            -c "scan_chain"
+            -c "irscan gowin.fpga 0x43"
+            -c "drscan gowin.fpga 32 0x00000000"
             -c "exit"
         )
         ;;
