@@ -5,6 +5,8 @@
 # Usage:
 #   ./scripts/openocd_gowin_jtag_probe.sh scan
 #   ./scripts/openocd_gowin_jtag_probe.sh led-on
+#   ./scripts/openocd_gowin_jtag_probe.sh led-on-er1
+#   ./scripts/openocd_gowin_jtag_probe.sh led-on-er2
 #   ./scripts/openocd_gowin_jtag_probe.sh drscan 0x0000003f
 #   ./scripts/openocd_gowin_jtag_probe.sh drscan-ir 0x43 0x0000003f
 #   ./scripts/openocd_gowin_jtag_probe.sh server
@@ -16,6 +18,8 @@ usage() {
 Usage:
   openocd_gowin_jtag_probe.sh scan
   openocd_gowin_jtag_probe.sh led-on
+  openocd_gowin_jtag_probe.sh led-on-er1
+  openocd_gowin_jtag_probe.sh led-on-er2
   openocd_gowin_jtag_probe.sh drscan <32-bit-value>
   openocd_gowin_jtag_probe.sh drscan-ir <8-bit-ir> <32-bit-value>
   openocd_gowin_jtag_probe.sh server
@@ -28,7 +32,8 @@ Environment overrides:
 
 Notes:
   - Run with sudo if OpenOCD cannot open the FTDI device in WSL.
-  - "led-on" shifts USER IR 0x43 then USER DR 0x0000003f.
+  - "led-on" and "led-on-er2" shift USER IR 0x43 then USER DR 0x0000003f.
+  - "led-on-er1" shifts USER IR 0x42 then USER DR 0x0000003f.
 EOF
 }
 
@@ -66,11 +71,20 @@ case "${mode}" in
             -c "exit"
         )
         ;;
-    led-on)
+    led-on|led-on-er2)
         openocd_args+=(
             -c "init"
             -c "scan_chain"
             -c "irscan gowin.fpga 0x43"
+            -c "drscan gowin.fpga 32 0x0000003f"
+            -c "exit"
+        )
+        ;;
+    led-on-er1)
+        openocd_args+=(
+            -c "init"
+            -c "scan_chain"
+            -c "irscan gowin.fpga 0x42"
             -c "drscan gowin.fpga 32 0x0000003f"
             -c "exit"
         )
