@@ -147,6 +147,18 @@ Probe expectations:
 | `sudo make openocd-bscan-dtmcs` | `irscan 0x42`, `drscan 32 0` | `00001071` |
 | `sudo make openocd-bscan-dmi` | `irscan 0x43`, `drscan 41 0` | `0ab2bfaeaf8` |
 
+If the PULP-style probe reads back `ffffffff`, use
+`pulp_bscan_fixed_tdo_tangnano9k_top` to bypass the adapter and drive
+`tdo_er1_i` / `tdo_er2_i` directly from known shift registers:
+
+| Command | Purpose | Expected readback |
+|:--------|:--------|:------------------|
+| `sudo make openocd-bscan-fixed-dtmcs` | Direct ER1 fixed-pattern TDO | `00001071` |
+| `sudo make openocd-bscan-fixed-dmi` | Direct ER2 fixed-pattern TDO | `0ab2bfaeaf8` |
+
+A passing fixed-pattern probe means the raw Gowin USER TDO paths are still
+healthy, and the next fix belongs in `gowin_dmi_bscan_tap.sv`.
+
 ## Useful commands
 
 Detect the TAP:
@@ -193,4 +205,13 @@ GW_SH=/opt/gowin_edu/IDE/bin/gw_sh make gowin-pulp-bscan-probe
 sudo make gowin-pulp-bscan-probe-prog
 sudo make openocd-bscan-dtmcs
 sudo make openocd-bscan-dmi
+```
+
+Run the fixed-pattern TDO isolation probe:
+
+```bash
+GW_SH=/opt/gowin_edu/IDE/bin/gw_sh make gowin-pulp-bscan-fixed-tdo
+sudo make gowin-pulp-bscan-fixed-tdo-prog
+sudo make openocd-bscan-fixed-dtmcs
+sudo make openocd-bscan-fixed-dmi
 ```

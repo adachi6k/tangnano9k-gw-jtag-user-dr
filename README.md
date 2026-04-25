@@ -35,11 +35,13 @@ OpenOCD itself.
 | `rtl_top/jtag_diag_tangnano9k_top.sv` | ER2 sticky diagnostic; ties `tdo_er2_i` high |
 | `rtl_top/gowin_dmi_bscan_tap.sv` | PULP `dmi_jtag_tap`-compatible Gowin BSCAN adapter |
 | `rtl_top/pulp_bscan_probe_tangnano9k_top.sv` | Probe top for the PULP-style ER1/ER2 mapping |
+| `rtl_top/pulp_bscan_fixed_tdo_tangnano9k_top.sv` | Direct GW_JTAG fixed-pattern TDO isolation probe |
 | `rtl_jtag_er1_probe.f` | ER1 probe filelist |
 | `rtl_jtag_probe.f` | ER2 probe filelist |
 | `rtl_jtag_er1_diag.f` | ER1 diagnostic filelist |
 | `rtl_jtag_diag.f` | ER2 diagnostic filelist |
 | `rtl_pulp_bscan_probe.f` | PULP-style BSCAN probe filelist |
+| `rtl_pulp_bscan_fixed_tdo.f` | Direct fixed-pattern TDO probe filelist |
 
 ## Requirements
 
@@ -141,6 +143,21 @@ port shape as PULP `dmi_jtag_tap`, so it can be evaluated as a replacement for
 PULP's Xilinx `dmi_bscane_tap.sv`. This is still an integration step: connect it
 to a real PULP/RISC-V Debug Module only after the probe readbacks above are
 confirmed on hardware.
+
+If the PULP-style probe reads back `ffffffff`, program the direct fixed-pattern
+TDO isolation probe:
+
+```bash
+make gowin-pulp-bscan-fixed-tdo
+sudo make gowin-pulp-bscan-fixed-tdo-prog
+sudo make openocd-bscan-fixed-dtmcs
+sudo make openocd-bscan-fixed-dmi
+```
+
+This probe bypasses `gowin_dmi_bscan_tap.sv` and drives `tdo_er1_i` /
+`tdo_er2_i` directly from known shift registers. It should read the same
+`00001071` and `0ab2bfaeaf8` patterns. If it does, the raw ER1/ER2 TDO paths are
+healthy and the adapter timing/select logic is the failing layer.
 
 ## Diagnostics
 
