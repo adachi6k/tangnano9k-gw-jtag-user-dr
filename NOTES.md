@@ -130,9 +130,9 @@ a script/config-only user of the existing Gowin TAP.
 The main timing caveat is capture. `GW_JTAG` exposes `shift_dr_capture_dr_o`
 rather than separate `CAPTURE` and `SHIFT` outputs like Xilinx `BSCANE2`. The
 adapter currently derives `capture_o` from the first active cycle of
-`shift_dr_capture_dr_o` and `shift_o` from following active cycles. The
-`pulp_bscan_probe_tangnano9k_top` bitstream exists to validate this assumption
-before connecting the adapter to a real Debug Module.
+`shift_dr_capture_dr_o` and maps `shift_o` directly from `shift_dr_capture_dr_o`.
+The `pulp_bscan_probe_tangnano9k_top` bitstream validates this mapping before
+connecting the adapter to a real Debug Module.
 
 The probe readback shifters are intentionally not gated by `enable_er1_o` or
 `enable_er2_o`. This mirrors the earlier minimal LED probes, where the robust
@@ -146,6 +146,14 @@ Probe expectations:
 |:--------|:----------------|:------------------|
 | `sudo make openocd-bscan-dtmcs` | `irscan 0x42`, `drscan 32 0` | `00001071` |
 | `sudo make openocd-bscan-dmi` | `irscan 0x43`, `drscan 41 0` | `0ab2bfaeaf8` |
+
+After mapping adapter `shift_o` directly from `shift_dr_capture_dr_o`, the
+PULP-style adapter probe passes on hardware:
+
+| Command | Observed readback |
+|:--------|:------------------|
+| `sudo make openocd-bscan-dtmcs` | `00001071` |
+| `sudo make openocd-bscan-dmi` | `0ab2bfaeaf8` |
 
 If the PULP-style probe reads back `ffffffff`, use
 `pulp_bscan_fixed_tdo_tangnano9k_top` to bypass the adapter and drive

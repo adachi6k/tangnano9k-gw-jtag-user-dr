@@ -135,6 +135,13 @@ sudo make openocd-bscan-dmi
 
 Expected probe readback is `0ab2bfaeaf8`.
 
+These adapter probe readbacks have been confirmed on Tang Nano 9K hardware:
+
+| Command | Observed readback |
+|:--------|:------------------|
+| `sudo make openocd-bscan-dtmcs` | `00001071` |
+| `sudo make openocd-bscan-dmi` | `0ab2bfaeaf8` |
+
 The probe readback registers intentionally capture and shift on GW_JTAG DR
 activity without gating by `enable_er1_o` or `enable_er2_o`. The LED bits still
 record whether those enable signals were observed, but readback validation only
@@ -142,9 +149,8 @@ depends on the USER DR TDO path and derived capture/shift timing.
 
 `rtl_top/gowin_dmi_bscan_tap.sv` intentionally uses the same module name and
 port shape as PULP `dmi_jtag_tap`, so it can be evaluated as a replacement for
-PULP's Xilinx `dmi_bscane_tap.sv`. This is still an integration step: connect it
-to a real PULP/RISC-V Debug Module only after the probe readbacks above are
-confirmed on hardware.
+PULP's Xilinx `dmi_bscane_tap.sv`. The next integration step is connecting this
+adapter to a real PULP/RISC-V Debug Module.
 
 If the PULP-style probe reads back `ffffffff`, program the direct fixed-pattern
 TDO isolation probe:
