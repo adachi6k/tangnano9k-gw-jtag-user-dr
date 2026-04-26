@@ -141,7 +141,7 @@ module dmi_jtag #(
     assign dtmcs_tdo = dtmcs_dr_q[0];
     assign dtmcs_hard_reset_req = dtmcs_select & jtag_update & dtmcs_dr_q[17];
     assign dtmcs_error_reset_req = dtmcs_select & jtag_update & dtmcs_dr_q[16];
-    assign dmi_clear = dtmcs_hard_reset_req | jreset;
+    assign dmi_clear = dtmcs_hard_reset_req | dtmcs_error_reset_req | jreset;
 
     always_ff @(posedge jtck or negedge jtrst_ni) begin
         if (!jtrst_ni) begin
@@ -178,7 +178,8 @@ module dmi_jtag #(
 
     assign capture_status = (state_q == Idle) ? error_q : DMIBusy;
     assign dmi_tdo = dmi_dr_q[0];
-    assign dmi_update = jtag_update & (dmi_shift_count_q >= 6'(DmiWidth));
+    assign dmi_update = dmi_select & jtag_update &
+                        (dmi_shift_count_q >= 6'(DmiWidth));
     assign dmi_update_op = dm::dtm_op_e'(dmi_dr_q[1:0]);
 
     always_comb begin
@@ -210,7 +211,7 @@ module dmi_jtag #(
             dmi_shift_count_q <= '0;
         end else if (dmi_clear | jtag_update) begin
             dmi_shift_count_q <= '0;
-        end else if (jshift_capture &&
+        end else if (dmi_select & jshift_capture &&
                      (dmi_shift_count_q < 6'(DmiWidth))) begin
             dmi_shift_count_q <= dmi_shift_count_q + 6'd1;
         end
@@ -223,11 +224,11 @@ module dmi_jtag #(
             dmi_dr_q <= '0;
         end else if (dmi_update) begin
             dmi_dr_q <= {dmi_dr_q[40:34], dmi_dr_q[33:2], DMINoError};
-        end else if (jshift_capture) begin
+        end else if (dmi_select & jshift_capture) begin
             dmi_dr_q <= {jtdi, dmi_dr_q[DmiWidth-1:1]};
         end else if (dmi_resp_pending_q & jtag_dmi_resp_valid) begin
             dmi_dr_q <= {address_q, response_data, response_status};
-        end else if (~jtag_update) begin
+        end else if (dmi_select & ~jtag_update) begin
             dmi_dr_q <= {address_q, data_q, capture_status};
         end
     end
@@ -342,9 +343,6 @@ module dmi_jtag #(
                 next_error = DMIBusy;
             end
 
-            if (dtmcs_error_reset_req) begin
-                next_error = DMINoError;
-            end
         end
     end
 
