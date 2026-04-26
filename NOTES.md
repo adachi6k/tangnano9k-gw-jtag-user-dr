@@ -138,7 +138,9 @@ Xilinx `BSCANE2`, and ER2 DMIACCESS does not reliably provide a
 PULP-compatible `enable_er2_o` / `update_dr_o` sequence. The working full bridge
 therefore preloads DTMCS while ER1 is selected and idle, shifts throughout
 `shift_dr_capture_dr_o`, counts 41 DMIACCESS bits, and treats the end of that
-41-bit USER DR shift as the DMI update point.
+41-bit USER DR shift as the DMI update point. `test_logic_reset_o` is kept as an
+observed diagnostic signal rather than being wired into the bridge reset path;
+using it as `trst_ni` or DMI clear made DTMCS read back `00000000` in hardware.
 
 The probe readback shifters are intentionally not gated by `enable_er1_o` or
 `enable_er2_o`. This mirrors the earlier minimal LED probes, where the robust

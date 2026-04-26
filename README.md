@@ -86,7 +86,9 @@ The key Tang Nano 9K-specific behavior is DMIACCESS update timing. `GW_JTAG`
 does not provide a Xilinx `BSCANE2`-equivalent ER2 `UPDATE`/`SEL` sequence that
 can be passed through unchanged to PULP `dmi_jtag_tap`. The verified bridge
 therefore counts ER2 DMIACCESS shifts and treats completion of a 41-bit USER DR
-shift as the DMI update point.
+shift as the DMI update point. Hardware testing also showed that Gowin
+`test_logic_reset_o` must not be treated as an asynchronous JTAG reset for this
+bridge; doing so clears DTMCS during OpenOCD scans.
 
 To integrate the verified bridge into a PULP riscv-dbg based design:
 

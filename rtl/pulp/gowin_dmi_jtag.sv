@@ -55,13 +55,6 @@ module dmi_jtag #(
         WaitWriteValid
     } state_e;
 
-    typedef enum logic [1:0] {
-        USER_NO_SHIFT      = 2'b00,
-        USER_DTMCS_SHIFT   = 2'b01,
-        USER_DMI_SHIFT     = 2'b10,
-        USER_INVALID_SHIFT = 2'b11
-    } user_shift_e;
-
     localparam int unsigned DmiOpStatusWidth = 2;
     localparam int unsigned DmiDataWidth = 32;
     localparam int unsigned DmiAddressWidth = 7;
@@ -104,41 +97,19 @@ module dmi_jtag #(
         .jtdo_er2       (dmi_tdo)
     );
 
-    logic jtrst_ni;
     logic dtmcs_selected;
     logic dmi_selected;
-    user_shift_e user_shift_q;
     logic er1_active;
     logic er2_active;
-    logic user_active;
-    logic user_conflict;
-    logic dtmcs_user_select;
-    logic dmi_user_select;
     logic dtmcs_select;
     logic dmi_select;
 
-    assign jtrst_ni    = trst_ni & ~jreset;
-    assign jshift_done = ~jshift_capture & jshift_capture_q &
-                         (user_shift_q == USER_DMI_SHIFT);
+    assign jshift_done = ~jshift_capture & jshift_capture_q;
     assign jtag_update = jupdate | jshift_done;
     assign er1_active = jen_er1 | jidle_er1;
     assign er2_active = jen_er2 | jidle_er2;
-    assign user_active = er1_active | er2_active;
-    assign user_conflict = er1_active & er2_active;
-    assign dtmcs_user_select =
-        user_active & ~user_conflict &
-        (er1_active | (dtmcs_selected & ~er2_active));
-    assign dmi_user_select =
-        user_active & ~user_conflict &
-        (er2_active | (dmi_selected & ~er1_active));
-    // DTMCS intentionally holds its latched select through Update-DR.
-    // DMIACCESS uses shift completion as its update point, so DMI keeps the
-    // latched select until then.
-    assign dtmcs_select = dtmcs_user_select |
-                          ((user_shift_q == USER_DTMCS_SHIFT) &
-                           (jshift_capture | jupdate));
-    assign dmi_select = dmi_user_select |
-                        (user_shift_q == USER_DMI_SHIFT);
+    assign dtmcs_select = er1_active | (dtmcs_selected & ~er2_active);
+    assign dmi_select = er2_active | (dmi_selected & ~er1_active);
 
     logic [31:0] dtmcs_dr_q;
     dmi_error_e error_q;
@@ -162,14 +133,13 @@ module dmi_jtag #(
     assign dtmcs_tdo = dtmcs_dr_q[0];
     assign dtmcs_hard_reset_req = dtmcs_select & jtag_update & dtmcs_dr_q[17];
     assign dtmcs_error_reset_req = dtmcs_select & jtag_update & dtmcs_dr_q[16];
-    assign dmi_clear = dtmcs_hard_reset_req | dtmcs_error_reset_req | jreset;
+    assign dmi_clear = dtmcs_hard_reset_req;
 
-    always_ff @(posedge jtck or negedge jtrst_ni) begin
-        if (!jtrst_ni) begin
+    always_ff @(posedge jtck or negedge trst_ni) begin
+        if (!trst_ni) begin
             jshift_capture_q <= 1'b0;
             dtmcs_selected <= 1'b0;
             dmi_selected <= 1'b0;
-            user_shift_q <= USER_NO_SHIFT;
         end else begin
             jshift_capture_q <= jshift_capture;
             if (er1_active) begin
@@ -179,23 +149,11 @@ module dmi_jtag #(
                 dtmcs_selected <= 1'b0;
                 dmi_selected <= 1'b1;
             end
-            if (dmi_clear || jtag_update) begin
-                user_shift_q <= USER_NO_SHIFT;
-            end else if (jshift_capture) begin
-                case ({dtmcs_user_select, dmi_user_select})
-                    2'b10: user_shift_q <= USER_DTMCS_SHIFT;
-                    2'b01: user_shift_q <= USER_DMI_SHIFT;
-                    2'b11: user_shift_q <= USER_INVALID_SHIFT;
-                    // Hold the latched USER shift if Gowin deasserts the
-                    // USER select indication before Shift-DR completes.
-                    default: user_shift_q <= user_shift_q;
-                endcase
-            end
         end
     end
 
-    always_ff @(posedge jtck or negedge jtrst_ni) begin
-        if (!jtrst_ni) begin
+    always_ff @(posedge jtck or negedge trst_ni) begin
+        if (!trst_ni) begin
             dtmcs_dr_q <= '0;
         end else if (dmi_clear) begin
             dtmcs_dr_q <= '0;
@@ -229,8 +187,7 @@ module dmi_jtag #(
 
     assign capture_status = (state_q == Idle) ? error_q : DMIBusy;
     assign dmi_tdo = dmi_dr_q[0];
-    assign dmi_update = dmi_select & jtag_update &
-                        (dmi_shift_count_q >= 6'(DmiWidth));
+    assign dmi_update = jtag_update & (dmi_shift_count_q >= 6'(DmiWidth));
     assign dmi_update_op =
         dm::dtm_op_e'(dmi_dr_q[DmiOpStatusMsb:DmiOpStatusLsb]);
 
@@ -258,19 +215,19 @@ module dmi_jtag #(
         endcase
     end
 
-    always_ff @(posedge jtck or negedge jtrst_ni) begin
-        if (!jtrst_ni) begin
+    always_ff @(posedge jtck or negedge trst_ni) begin
+        if (!trst_ni) begin
             dmi_shift_count_q <= '0;
         end else if (dmi_clear | jtag_update) begin
             dmi_shift_count_q <= '0;
-        end else if (dmi_select & jshift_capture &&
+        end else if (jshift_capture &&
                      (dmi_shift_count_q < 6'(DmiWidth))) begin
             dmi_shift_count_q <= dmi_shift_count_q + 6'd1;
         end
     end
 
-    always_ff @(posedge jtck or negedge jtrst_ni) begin
-        if (!jtrst_ni) begin
+    always_ff @(posedge jtck or negedge trst_ni) begin
+        if (!trst_ni) begin
             dmi_dr_q <= '0;
         end else if (dmi_clear) begin
             dmi_dr_q <= '0;
@@ -280,17 +237,17 @@ module dmi_jtag #(
                 dmi_dr_q[DmiDataMsb:DmiDataLsb],
                 DMINoError
             };
-        end else if (dmi_select & jshift_capture) begin
+        end else if (jshift_capture) begin
             dmi_dr_q <= {jtdi, dmi_dr_q[DmiWidth-1:1]};
         end else if (dmi_resp_pending_q & jtag_dmi_resp_valid) begin
             dmi_dr_q <= {address_q, response_data, response_status};
-        end else if (dmi_select & ~jtag_update) begin
+        end else if (~jtag_update) begin
             dmi_dr_q <= {address_q, data_q, capture_status};
         end
     end
 
-    always_ff @(posedge jtck or negedge jtrst_ni) begin
-        if (!jtrst_ni) begin
+    always_ff @(posedge jtck or negedge trst_ni) begin
+        if (!trst_ni) begin
             dmi_resp_pending_q <= 1'b0;
         end else if (dmi_clear) begin
             dmi_resp_pending_q <= 1'b0;
@@ -400,11 +357,15 @@ module dmi_jtag #(
                 next_error = DMIBusy;
             end
 
+            if (dtmcs_error_reset_req) begin
+                next_error = DMINoError;
+            end
+
         end
     end
 
-    always_ff @(posedge jtck or negedge jtrst_ni) begin
-        if (!jtrst_ni) begin
+    always_ff @(posedge jtck or negedge trst_ni) begin
+        if (!trst_ni) begin
             state_q <= Idle;
             address_q <= '0;
             data_q <= '0;
@@ -429,7 +390,7 @@ module dmi_jtag #(
 
     dmi_cdc i_dmi_cdc (
         .tck_i                (jtck),
-        .trst_ni              (jtrst_ni),
+        .trst_ni              (trst_ni),
         .jtag_dmi_req_i       (jtag_dmi_req),
         .jtag_dmi_ready_o     (jtag_dmi_req_ready),
         .jtag_dmi_valid_i     (jtag_dmi_req_valid),
@@ -451,12 +412,13 @@ module dmi_jtag #(
     assign td_o = 1'b0;
     assign tdo_oe_o = 1'b0;
 
-    logic [5:0] unused_compat;
+    logic [6:0] unused_compat;
     assign unused_compat = {
         tck_i,
         tms_i,
         td_i,
         testmode_i,
+        jreset,
         jidle_er1 ^ jidle_er2,
         ^IdcodeValue
     };
