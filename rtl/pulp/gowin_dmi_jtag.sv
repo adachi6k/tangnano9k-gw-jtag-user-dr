@@ -100,28 +100,40 @@ module dmi_jtag #(
     logic jtrst_ni;
     logic dtmcs_selected;
     logic dmi_selected;
+    logic dtmcs_shift_selected;
+    logic dmi_shift_selected;
     logic er1_active;
     logic er2_active;
     logic user_active;
+    logic dtmcs_user_select;
+    logic dmi_user_select;
     logic dtmcs_select;
     logic dmi_select;
+    logic dmi_clear;
 
     assign jtrst_ni    = trst_ni & ~jreset;
-    assign jshift_done = ~jshift_capture & jshift_capture_q & dmi_select;
+    assign jshift_done = ~jshift_capture & jshift_capture_q &
+                         dmi_shift_selected;
     assign jtag_update = jupdate | jshift_done;
     assign er1_active = jen_er1 | jidle_er1;
     assign er2_active = jen_er2 | jidle_er2;
     assign user_active = er1_active | er2_active;
-    assign dtmcs_select =
+    assign dtmcs_user_select =
         user_active & (er1_active | (dtmcs_selected & ~er2_active));
-    assign dmi_select =
+    assign dmi_user_select =
         user_active & (er2_active | (dmi_selected & ~er1_active));
+    assign dtmcs_select = dtmcs_user_select |
+                          (dtmcs_shift_selected &
+                           (jshift_capture | jupdate));
+    assign dmi_select = dmi_user_select | dmi_shift_selected;
 
     always_ff @(posedge jtck or negedge jtrst_ni) begin
         if (!jtrst_ni) begin
             jshift_capture_q <= 1'b0;
             dtmcs_selected <= 1'b0;
             dmi_selected <= 1'b0;
+            dtmcs_shift_selected <= 1'b0;
+            dmi_shift_selected <= 1'b0;
         end else begin
             jshift_capture_q <= jshift_capture;
             if (er1_active) begin
@@ -130,6 +142,16 @@ module dmi_jtag #(
             end else if (er2_active) begin
                 dtmcs_selected <= 1'b0;
                 dmi_selected <= 1'b1;
+            end
+            if (dmi_clear | jtag_update) begin
+                dtmcs_shift_selected <= 1'b0;
+                dmi_shift_selected <= 1'b0;
+            end else if (jshift_capture & dtmcs_user_select) begin
+                dtmcs_shift_selected <= 1'b1;
+                dmi_shift_selected <= 1'b0;
+            end else if (jshift_capture & dmi_user_select) begin
+                dtmcs_shift_selected <= 1'b0;
+                dmi_shift_selected <= 1'b1;
             end
         end
     end
@@ -140,7 +162,6 @@ module dmi_jtag #(
     logic [31:0] dtmcs_read;
     logic dtmcs_hard_reset_req;
     logic dtmcs_error_reset_req;
-    logic dmi_clear;
 
     assign dtmcs_read = {
         14'b0,
