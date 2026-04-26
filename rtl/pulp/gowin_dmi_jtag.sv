@@ -11,7 +11,8 @@
 //
 // The separate dmi_jtag_tap adapter (experiments/adapter_probe/gowin_dmi_bscan_tap.sv)
 // is useful for probes, but Tang Nano 9K hardware does not expose enough
-// BSCANE2-like phase information for a fully transparent PULP TAP replacement.  In particular, ER2 update/enable behavior
+// BSCANE2-like phase information for a fully transparent PULP TAP replacement.
+// In particular, ER2 update/enable behavior
 // is not reliable for DMIACCESS, so this full bridge treats completion of a
 // 41-bit USER DR shift as the DMI update point.
 
