@@ -56,9 +56,9 @@ module dmi_jtag #(
     } state_e;
 
     typedef enum logic [1:0] {
-        USER_NO_SHIFT,
-        USER_DTMCS_SHIFT,
-        USER_DMI_SHIFT
+        USER_NO_SHIFT    = 2'b00,
+        USER_DTMCS_SHIFT = 2'b01,
+        USER_DMI_SHIFT   = 2'b10
     } user_shift_e;
 
     localparam int unsigned DmiOpStatusWidth = 2;
@@ -130,6 +130,8 @@ module dmi_jtag #(
     assign dmi_user_select =
         user_active & ~user_conflict &
         (er2_active | (dmi_selected & ~er1_active));
+    // DTMCS uses the real Update-DR pulse; DMIACCESS uses shift completion
+    // as its update point, so DMI keeps the latched select until then.
     assign dtmcs_select = dtmcs_user_select |
                           ((user_shift_q == USER_DTMCS_SHIFT) &
                            (jshift_capture | jupdate));
