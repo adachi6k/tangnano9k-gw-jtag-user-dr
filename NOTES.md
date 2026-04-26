@@ -15,7 +15,8 @@ The verified USER data register paths are:
 | JTAG IR length | `8` |
 | Verified USER paths | ER1 / USER1 and ER2 / USER2 |
 | Verified USER IRs | `0x42` and `0x43` |
-| Confirmed DR width | `32` bits |
+| Confirmed raw USER probe DR width | `32` bits |
+| Verified DMIACCESS width | `41` bits (`abits=7`, `data=32`, `op/status=2`) |
 
 ER2 / USER2 (`0x43`) was confirmed first. ER1 / USER1 (`0x42`) was then
 retested with the same direct-shift conditions and also worked.
@@ -123,16 +124,21 @@ BSCAN implementation. In that flow, separate `BSCANE2` USER chains provide:
 | TDO mux | native BSCAN chain TDO input | `tdo_er1_i` / `tdo_er2_i` |
 
 `rtl/pulp/gowin_dmi_bscan_tap.sv` is written with the same module name and port
-shape as PULP `dmi_jtag_tap`. The intended integration experiment is to compile
-this file instead of PULP's Xilinx `dmi_bscane_tap.sv`, while keeping OpenOCD as
-a script/config-only user of the existing Gowin TAP.
+shape as PULP `dmi_jtag_tap`. It remains useful for adapter probes and for
+documenting the attempted BSCANE2-style migration.
 
-The main timing caveat is capture. `GW_JTAG` exposes `shift_dr_capture_dr_o`
-rather than separate `CAPTURE` and `SHIFT` outputs like Xilinx `BSCANE2`. For
-PULP integration, the adapter derives `capture_o` from the first active cycle of
-`shift_dr_capture_dr_o` and `shift_o` from following active cycles, so they are
-not asserted in the same TCK cycle. `dmi_clear_o` follows `test_logic_reset_o`
-from the Gowin primitive.
+The hardware-validated integration path is now `rtl/pulp/gowin_dmi_jtag.sv`.
+It replaces PULP `dmi_jtag.sv` as a whole, keeps the same external module port
+shape, reuses PULP `dmi_cdc`, and implements DTMCS/DMIACCESS directly on
+`GW_JTAG` USER chains.
+
+The main timing caveat is capture/update. `GW_JTAG` exposes
+`shift_dr_capture_dr_o` rather than separate `CAPTURE` and `SHIFT` outputs like
+Xilinx `BSCANE2`, and ER2 DMIACCESS does not reliably provide a
+PULP-compatible `enable_er2_o` / `update_dr_o` sequence. The working full bridge
+therefore preloads DTMCS while ER1 is selected and idle, shifts throughout
+`shift_dr_capture_dr_o`, counts 41 DMIACCESS bits, and treats the end of that
+41-bit USER DR shift as the DMI update point.
 
 The probe readback shifters are intentionally not gated by `enable_er1_o` or
 `enable_er2_o`. This mirrors the earlier minimal LED probes, where the robust
@@ -192,13 +198,36 @@ DTMCS test pattern has LSB `1`, so repeated reset reloads appear as all-ones
 TDO.
 
 The first adapter-probe pass used direct-shift bring-up semantics to prove the
-ER1/ER2 USER DR mapping. For the real PULP-compatible adapter, the final
-integration semantics are stricter than that bring-up probe: `capture_o` and
-`shift_o` are mutually exclusive, selection tracking resets on
-`test_logic_reset_o`, and `dmi_clear_o` is connected to the Gowin JTAG reset.
-The next validation step is a real PULP `dmi_jtag` / `dm_top` connection,
-checking DTMCS read through IR `0x42`, DMIACCESS read/write through IR `0x43`,
-`dmcontrol.dmactive` write, and `dmstatus` read.
+ER1/ER2 USER DR mapping. The later real PULP `dmi_jtag` / `dm_top` connection
+showed that a TAP-only adapter was not sufficient on Tang Nano 9K, so the
+working integration moved the Gowin-specific behavior into a full `dmi_jtag`
+replacement.
+
+## Verified PULP Debug Module integration
+
+The following stack was verified on hardware through the LM RV32 integration:
+
+| Component | Version / value |
+|:----------|:----------------|
+| Board | Tang Nano 9K |
+| FPGA | GW1NR-LV9QN88PC6/I5 |
+| JTAG adapter | SIPEED JTAG Debugger |
+| PULP riscv-dbg | `v0.10.0` / `1cd764a82d7d49c5e8679fbb70b540b2e274bab9` |
+| PULP common_cells | `v1.39.0-5-gb74f0ad` / `b74f0ad63600762ef101cf1d3365d19dfbb3123b` |
+| Debug wrapper | `dm_obi_top` + `dmi_cdc` + `gowin_dmi_jtag.sv` |
+| OpenOCD | `0.12.0+dev-geb01c63` |
+
+Confirmed operations:
+
+| Operation | Result |
+|:----------|:-------|
+| Gowin TAP scan | IDCODE `0x1100481b`, IR length `8` |
+| DTMCS read, ER1 / IR `0x42` | `00001071` |
+| DMIACCESS NOP pattern loop, ER2 / IR `0x43` | second scan readback `00ab2bfaeaf8` |
+| Write `dmcontrol.dmactive=1` | `addr=0x10 data=0x00000001 status=0` |
+| Read `dmstatus` | `addr=0x11 data=0x000c0c82 status=0` |
+| OpenOCD examine | `Target successfully examined`, `XLEN=32`, `misa=0x40001100` |
+| OpenOCD halt smoke test | halted by debug-request, `pc=0x00000400` |
 
 ## Useful commands
 
