@@ -55,7 +55,18 @@ module dmi_jtag #(
         WaitWriteValid
     } state_e;
 
-    localparam int unsigned DmiWidth = 41;
+    localparam int unsigned DmiOpStatusWidth = 2;
+    localparam int unsigned DmiDataWidth = 32;
+    localparam int unsigned DmiAddressWidth = 7;
+    localparam int unsigned DmiOpStatusLsb = 0;
+    localparam int unsigned DmiOpStatusMsb =
+        DmiOpStatusLsb + DmiOpStatusWidth - 1;
+    localparam int unsigned DmiDataLsb = DmiOpStatusMsb + 1;
+    localparam int unsigned DmiDataMsb = DmiDataLsb + DmiDataWidth - 1;
+    localparam int unsigned DmiAddressLsb = DmiDataMsb + 1;
+    localparam int unsigned DmiAddressMsb =
+        DmiAddressLsb + DmiAddressWidth - 1;
+    localparam int unsigned DmiWidth = DmiAddressMsb + 1;
 
     logic jtck;
     logic jtdi;
@@ -158,10 +169,10 @@ module dmi_jtag #(
     state_e state_q;
     state_e next_state;
     logic [DmiWidth-1:0] dmi_dr_q;
-    logic [6:0] address_q;
-    logic [6:0] next_address;
-    logic [31:0] data_q;
-    logic [31:0] next_data;
+    logic [DmiAddressWidth-1:0] address_q;
+    logic [DmiAddressWidth-1:0] next_address;
+    logic [DmiDataWidth-1:0] data_q;
+    logic [DmiDataWidth-1:0] next_data;
     dmi_error_e capture_status;
     dm::dmi_req_t jtag_dmi_req;
     dm::dmi_resp_t jtag_dmi_resp;
@@ -180,7 +191,8 @@ module dmi_jtag #(
     assign dmi_tdo = dmi_dr_q[0];
     assign dmi_update = dmi_select & jtag_update &
                         (dmi_shift_count_q >= 6'(DmiWidth));
-    assign dmi_update_op = dm::dtm_op_e'(dmi_dr_q[1:0]);
+    assign dmi_update_op =
+        dm::dtm_op_e'(dmi_dr_q[DmiOpStatusMsb:DmiOpStatusLsb]);
 
     always_comb begin
         response_data = data_q;
@@ -223,7 +235,11 @@ module dmi_jtag #(
         end else if (dmi_clear) begin
             dmi_dr_q <= '0;
         end else if (dmi_update) begin
-            dmi_dr_q <= {dmi_dr_q[40:34], dmi_dr_q[33:2], DMINoError};
+            dmi_dr_q <= {
+                dmi_dr_q[DmiAddressMsb:DmiAddressLsb],
+                dmi_dr_q[DmiDataMsb:DmiDataLsb],
+                DMINoError
+            };
         end else if (dmi_select & jshift_capture) begin
             dmi_dr_q <= {jtdi, dmi_dr_q[DmiWidth-1:1]};
         end else if (dmi_resp_pending_q & jtag_dmi_resp_valid) begin
@@ -263,8 +279,9 @@ module dmi_jtag #(
             unique case (state_q)
                 Idle: begin
                     if (dmi_update & (error_q == DMINoError)) begin
-                        next_address = dmi_dr_q[40:34];
-                        next_data = dmi_dr_q[33:2];
+                        next_address =
+                            dmi_dr_q[DmiAddressMsb:DmiAddressLsb];
+                        next_data = dmi_dr_q[DmiDataMsb:DmiDataLsb];
                         unique case (dmi_update_op)
                             dm::DTM_READ: next_state = Read;
                             dm::DTM_WRITE: next_state = Write;
