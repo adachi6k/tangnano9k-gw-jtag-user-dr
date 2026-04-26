@@ -186,6 +186,8 @@ module dmi_jtag #(
                     2'b10: user_shift_q <= USER_DTMCS_SHIFT;
                     2'b01: user_shift_q <= USER_DMI_SHIFT;
                     2'b11: user_shift_q <= USER_INVALID_SHIFT;
+                    // Hold the latched USER shift if Gowin deasserts the
+                    // USER select indication before Shift-DR completes.
                     default: user_shift_q <= user_shift_q;
                 endcase
             end
