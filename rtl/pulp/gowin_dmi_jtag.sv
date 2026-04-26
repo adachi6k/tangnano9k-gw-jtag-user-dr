@@ -107,9 +107,9 @@ module dmi_jtag #(
     logic user_active;
     logic dtmcs_user_select;
     logic dmi_user_select;
+    logic dtmcs_shift_select;
     logic dtmcs_select;
     logic dmi_select;
-    logic dmi_clear;
 
     assign jtrst_ni    = trst_ni & ~jreset;
     assign jshift_done = ~jshift_capture & jshift_capture_q &
@@ -122,10 +122,34 @@ module dmi_jtag #(
         user_active & (er1_active | (dtmcs_selected & ~er2_active));
     assign dmi_user_select =
         user_active & (er2_active | (dmi_selected & ~er1_active));
+    assign dtmcs_shift_select = dtmcs_user_select | dtmcs_shift_selected;
     assign dtmcs_select = dtmcs_user_select |
-                          (dtmcs_shift_selected &
-                           (jshift_capture | jupdate));
+                          (dtmcs_shift_selected & jupdate);
     assign dmi_select = dmi_user_select | dmi_shift_selected;
+
+    logic [31:0] dtmcs_dr_q;
+    dmi_error_e error_q;
+    dmi_error_e next_error;
+    logic [31:0] dtmcs_read;
+    logic dtmcs_hard_reset_req;
+    logic dtmcs_error_reset_req;
+    logic dmi_clear;
+
+    assign dtmcs_read = {
+        14'b0,
+        1'b0,
+        1'b0,
+        1'b0,
+        3'd1,
+        error_q,
+        6'd7,
+        4'd1
+    };
+
+    assign dtmcs_tdo = dtmcs_dr_q[0];
+    assign dtmcs_hard_reset_req = dtmcs_select & jtag_update & dtmcs_dr_q[17];
+    assign dtmcs_error_reset_req = dtmcs_select & jtag_update & dtmcs_dr_q[16];
+    assign dmi_clear = dtmcs_hard_reset_req | dtmcs_error_reset_req | jreset;
 
     always_ff @(posedge jtck or negedge jtrst_ni) begin
         if (!jtrst_ni) begin
@@ -156,29 +180,6 @@ module dmi_jtag #(
         end
     end
 
-    logic [31:0] dtmcs_dr_q;
-    dmi_error_e error_q;
-    dmi_error_e next_error;
-    logic [31:0] dtmcs_read;
-    logic dtmcs_hard_reset_req;
-    logic dtmcs_error_reset_req;
-
-    assign dtmcs_read = {
-        14'b0,
-        1'b0,
-        1'b0,
-        1'b0,
-        3'd1,
-        error_q,
-        6'd7,
-        4'd1
-    };
-
-    assign dtmcs_tdo = dtmcs_dr_q[0];
-    assign dtmcs_hard_reset_req = dtmcs_select & jtag_update & dtmcs_dr_q[17];
-    assign dtmcs_error_reset_req = dtmcs_select & jtag_update & dtmcs_dr_q[16];
-    assign dmi_clear = dtmcs_hard_reset_req | dtmcs_error_reset_req | jreset;
-
     always_ff @(posedge jtck or negedge jtrst_ni) begin
         if (!jtrst_ni) begin
             dtmcs_dr_q <= '0;
@@ -186,7 +187,7 @@ module dmi_jtag #(
             dtmcs_dr_q <= '0;
         end else if (dtmcs_select & ~jshift_capture & ~jupdate) begin
             dtmcs_dr_q <= dtmcs_read;
-        end else if (dtmcs_select & jshift_capture) begin
+        end else if (dtmcs_shift_select & jshift_capture) begin
             dtmcs_dr_q <= {jtdi, dtmcs_dr_q[31:1]};
         end
     end
