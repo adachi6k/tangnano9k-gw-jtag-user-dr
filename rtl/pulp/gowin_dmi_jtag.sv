@@ -56,9 +56,9 @@ module dmi_jtag #(
     } state_e;
 
     typedef enum logic [1:0] {
-        UserNoShift,
-        UserDtmcsShift,
-        UserDmiShift
+        USER_NO_SHIFT,
+        USER_DTMCS_SHIFT,
+        USER_DMI_SHIFT
     } user_shift_e;
 
     localparam int unsigned DmiOpStatusWidth = 2;
@@ -112,14 +112,12 @@ module dmi_jtag #(
     logic user_active;
     logic dtmcs_user_select;
     logic dmi_user_select;
-    logic dtmcs_shift_active;
-    logic dmi_shift_active;
     logic dtmcs_select;
     logic dmi_select;
 
     assign jtrst_ni    = trst_ni & ~jreset;
     assign jshift_done = ~jshift_capture & jshift_capture_q &
-                         dmi_shift_active;
+                         (user_shift_q == USER_DMI_SHIFT);
     assign jtag_update = jupdate | jshift_done;
     assign er1_active = jen_er1 | jidle_er1;
     assign er2_active = jen_er2 | jidle_er2;
@@ -128,11 +126,10 @@ module dmi_jtag #(
         user_active & (er1_active | (dtmcs_selected & ~er2_active));
     assign dmi_user_select =
         user_active & (er2_active | (dmi_selected & ~er1_active));
-    assign dtmcs_shift_active = user_shift_q == UserDtmcsShift;
-    assign dmi_shift_active = user_shift_q == UserDmiShift;
     assign dtmcs_select = dtmcs_user_select |
-                          (dtmcs_shift_active & jupdate);
-    assign dmi_select = dmi_user_select | dmi_shift_active;
+                          ((user_shift_q == USER_DTMCS_SHIFT) & jupdate);
+    assign dmi_select = dmi_user_select |
+                        (user_shift_q == USER_DMI_SHIFT);
 
     logic [31:0] dtmcs_dr_q;
     dmi_error_e error_q;
@@ -163,7 +160,7 @@ module dmi_jtag #(
             jshift_capture_q <= 1'b0;
             dtmcs_selected <= 1'b0;
             dmi_selected <= 1'b0;
-            user_shift_q <= UserNoShift;
+            user_shift_q <= USER_NO_SHIFT;
         end else begin
             jshift_capture_q <= jshift_capture;
             if (er1_active) begin
@@ -174,11 +171,11 @@ module dmi_jtag #(
                 dmi_selected <= 1'b1;
             end
             if (dmi_clear || jtag_update) begin
-                user_shift_q <= UserNoShift;
-            end else if (jshift_capture & dtmcs_user_select) begin
-                user_shift_q <= UserDtmcsShift;
-            end else if (jshift_capture & dmi_user_select) begin
-                user_shift_q <= UserDmiShift;
+                user_shift_q <= USER_NO_SHIFT;
+            end else if (jshift_capture && dtmcs_user_select) begin
+                user_shift_q <= USER_DTMCS_SHIFT;
+            end else if (jshift_capture && dmi_user_select) begin
+                user_shift_q <= USER_DMI_SHIFT;
             end
         end
     end
@@ -190,7 +187,8 @@ module dmi_jtag #(
             dtmcs_dr_q <= '0;
         end else if (dtmcs_select & ~jshift_capture & ~jupdate) begin
             dtmcs_dr_q <= dtmcs_read;
-        end else if (dtmcs_shift_active & jshift_capture) begin
+        end else if ((user_shift_q == USER_DTMCS_SHIFT) &&
+                     jshift_capture) begin
             dtmcs_dr_q <= {jtdi, dtmcs_dr_q[31:1]};
         end
     end
