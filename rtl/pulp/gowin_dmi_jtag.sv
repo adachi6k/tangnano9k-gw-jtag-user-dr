@@ -182,13 +182,15 @@ module dmi_jtag #(
             if (dmi_clear || jtag_update) begin
                 user_shift_q <= USER_NO_SHIFT;
             end else if (jshift_capture) begin
-                unique case ({dtmcs_user_select, dmi_user_select})
-                    2'b10: user_shift_q <= USER_DTMCS_SHIFT;
-                    2'b01: user_shift_q <= USER_DMI_SHIFT;
-                    2'b11: user_shift_q <= USER_INVALID_SHIFT;
-                    default: begin
-                    end
-                endcase
+                if ({dtmcs_user_select, dmi_user_select} == 2'b10) begin
+                    user_shift_q <= USER_DTMCS_SHIFT;
+                end else if ({dtmcs_user_select, dmi_user_select} ==
+                             2'b01) begin
+                    user_shift_q <= USER_DMI_SHIFT;
+                end else if ({dtmcs_user_select, dmi_user_select} ==
+                             2'b11) begin
+                    user_shift_q <= USER_INVALID_SHIFT;
+                end
             end
         end
     end
