@@ -127,7 +127,8 @@ module dmi_jtag #(
     assign dmi_user_select =
         user_active & (er2_active | (dmi_selected & ~er1_active));
     assign dtmcs_select = dtmcs_user_select |
-                          ((user_shift_q == USER_DTMCS_SHIFT) & jupdate);
+                          ((user_shift_q == USER_DTMCS_SHIFT) &
+                           (jshift_capture | jupdate));
     assign dmi_select = dmi_user_select |
                         (user_shift_q == USER_DMI_SHIFT);
 
@@ -187,8 +188,7 @@ module dmi_jtag #(
             dtmcs_dr_q <= '0;
         end else if (dtmcs_select & ~jshift_capture & ~jupdate) begin
             dtmcs_dr_q <= dtmcs_read;
-        end else if ((user_shift_q == USER_DTMCS_SHIFT) &&
-                     jshift_capture) begin
+        end else if (dtmcs_select & jshift_capture) begin
             dtmcs_dr_q <= {jtdi, dtmcs_dr_q[31:1]};
         end
     end
