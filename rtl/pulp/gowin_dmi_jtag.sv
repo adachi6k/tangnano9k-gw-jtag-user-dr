@@ -9,9 +9,9 @@
 //   ER1 / USER1 / IR 0x42 -> DTMCS
 //   ER2 / USER2 / IR 0x43 -> DMIACCESS
 //
-// The separate dmi_jtag_tap adapter is useful for probes, but Tang Nano 9K
-// hardware does not expose enough BSCANE2-like phase information for a fully
-// transparent PULP TAP replacement.  In particular, ER2 update/enable behavior
+// The separate dmi_jtag_tap adapter (experiments/adapter_probe/gowin_dmi_bscan_tap.sv)
+// is useful for probes, but Tang Nano 9K hardware does not expose enough
+// BSCANE2-like phase information for a fully transparent PULP TAP replacement.  In particular, ER2 update/enable behavior
 // is not reliable for DMIACCESS, so this full bridge treats completion of a
 // 41-bit USER DR shift as the DMI update point.
 
@@ -85,6 +85,7 @@ module dmi_jtag #(
         .jtdo_er2       (dmi_tdo)
     );
 
+    logic jtrst_ni;
     logic dtmcs_selected;
     logic dmi_selected;
     logic er1_active;
@@ -92,15 +93,16 @@ module dmi_jtag #(
     logic dtmcs_select;
     logic dmi_select;
 
-    assign jshift_done = ~jshift_capture & jshift_capture_q;
+    assign jtrst_ni    = trst_ni & ~jreset;
+    assign jshift_done = ~jshift_capture & jshift_capture_q & dmi_select;
     assign jtag_update = jupdate | jshift_done;
     assign er1_active = jen_er1 | jidle_er1;
     assign er2_active = jen_er2 | jidle_er2;
     assign dtmcs_select = er1_active | (dtmcs_selected & ~er2_active);
     assign dmi_select = er2_active | (dmi_selected & ~er1_active);
 
-    always_ff @(posedge jtck or negedge trst_ni) begin
-        if (!trst_ni) begin
+    always_ff @(posedge jtck or negedge jtrst_ni) begin
+        if (!jtrst_ni) begin
             jshift_capture_q <= 1'b0;
             dtmcs_selected <= 1'b0;
             dmi_selected <= 1'b0;
@@ -138,10 +140,10 @@ module dmi_jtag #(
     assign dtmcs_tdo = dtmcs_dr_q[0];
     assign dtmcs_hard_reset_req = dtmcs_select & jtag_update & dtmcs_dr_q[17];
     assign dtmcs_error_reset_req = dtmcs_select & jtag_update & dtmcs_dr_q[16];
-    assign dmi_clear = dtmcs_hard_reset_req;
+    assign dmi_clear = dtmcs_hard_reset_req | jreset;
 
-    always_ff @(posedge jtck or negedge trst_ni) begin
-        if (!trst_ni) begin
+    always_ff @(posedge jtck or negedge jtrst_ni) begin
+        if (!jtrst_ni) begin
             dtmcs_dr_q <= '0;
         end else if (dmi_clear) begin
             dtmcs_dr_q <= '0;
@@ -178,16 +180,6 @@ module dmi_jtag #(
     assign dmi_update = jtag_update & (dmi_shift_count_q >= 6'(DmiWidth));
     assign dmi_update_op = dm::dtm_op_e'(dmi_dr_q[1:0]);
 
-    initial begin
-        dmi_dr_q = '0;
-        dmi_shift_count_q = '0;
-        dmi_resp_pending_q = 1'b0;
-        state_q = Idle;
-        address_q = '0;
-        data_q = '0;
-        error_q = DMINoError;
-    end
-
     always_comb begin
         response_data = data_q;
         response_status = DMINoError;
@@ -212,8 +204,8 @@ module dmi_jtag #(
         endcase
     end
 
-    always_ff @(posedge jtck or negedge trst_ni) begin
-        if (!trst_ni) begin
+    always_ff @(posedge jtck or negedge jtrst_ni) begin
+        if (!jtrst_ni) begin
             dmi_shift_count_q <= '0;
         end else if (dmi_clear | jtag_update) begin
             dmi_shift_count_q <= '0;
@@ -223,8 +215,8 @@ module dmi_jtag #(
         end
     end
 
-    always_ff @(posedge jtck or negedge trst_ni) begin
-        if (!trst_ni) begin
+    always_ff @(posedge jtck or negedge jtrst_ni) begin
+        if (!jtrst_ni) begin
             dmi_dr_q <= '0;
         end else if (dmi_clear) begin
             dmi_dr_q <= '0;
@@ -239,8 +231,8 @@ module dmi_jtag #(
         end
     end
 
-    always_ff @(posedge jtck or negedge trst_ni) begin
-        if (!trst_ni) begin
+    always_ff @(posedge jtck or negedge jtrst_ni) begin
+        if (!jtrst_ni) begin
             dmi_resp_pending_q <= 1'b0;
         end else if (dmi_clear) begin
             dmi_resp_pending_q <= 1'b0;
@@ -355,8 +347,8 @@ module dmi_jtag #(
         end
     end
 
-    always_ff @(posedge jtck or negedge trst_ni) begin
-        if (!trst_ni) begin
+    always_ff @(posedge jtck or negedge jtrst_ni) begin
+        if (!jtrst_ni) begin
             state_q <= Idle;
             address_q <= '0;
             data_q <= '0;
@@ -381,7 +373,7 @@ module dmi_jtag #(
 
     dmi_cdc i_dmi_cdc (
         .tck_i                (jtck),
-        .trst_ni              (trst_ni),
+        .trst_ni              (jtrst_ni),
         .jtag_dmi_req_i       (jtag_dmi_req),
         .jtag_dmi_ready_o     (jtag_dmi_req_ready),
         .jtag_dmi_valid_i     (jtag_dmi_req_valid),
@@ -403,14 +395,12 @@ module dmi_jtag #(
     assign td_o = 1'b0;
     assign tdo_oe_o = 1'b0;
 
-    logic [7:0] unused_compat;
+    logic [5:0] unused_compat;
     assign unused_compat = {
         tck_i,
         tms_i,
         td_i,
         testmode_i,
-        jreset,
-        dmi_select,
         jidle_er1 ^ jidle_er2,
         ^IdcodeValue
     };

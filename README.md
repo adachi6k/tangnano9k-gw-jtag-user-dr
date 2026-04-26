@@ -15,7 +15,7 @@ to the two DMI JTAG data registers used by PULP:
 
 This follows the same integration idea as PULP's Xilinx `BSCANE2` flow, but uses
 Gowin `GW_JTAG` instead of Xilinx BSCAN primitives. The older
-`rtl/pulp/gowin_dmi_bscan_tap.sv` is kept as a probe-oriented
+`experiments/adapter_probe/gowin_dmi_bscan_tap.sv` is kept as a probe-oriented
 `dmi_jtag_tap` adapter, but the full `gowin_dmi_jtag.sv` replacement is the path
 that was verified with real PULP `dm_obi_top` integration.
 
@@ -114,7 +114,7 @@ Verified on Tang Nano 9K:
 | PULP-style adapter mapping probe | Passed during bring-up |
 | Full PULP `dmi_jtag` / `dm_obi_top` integration | Passed on LM RV32 core |
 
-The probe-oriented `gowin_dmi_bscan_tap.sv` uses PULP-like semantics:
+The probe-oriented `experiments/adapter_probe/gowin_dmi_bscan_tap.sv` uses PULP-like semantics:
 
 - `capture_o` and `shift_o` are mutually exclusive.
 - The first active `shift_dr_capture_dr_o` cycle asserts `capture_o`.
@@ -131,9 +131,9 @@ PULP-compatible TAP phase interface from `GW_JTAG`.
 | Path | Purpose |
 |:-----|:--------|
 | `rtl/pulp/gowin_dmi_jtag.sv` | Hardware-validated PULP `dmi_jtag` replacement for Tang Nano 9K |
-| `rtl/pulp/gowin_dmi_bscan_tap.sv` | Probe-oriented PULP `dmi_jtag_tap` pin-compatible Gowin BSCAN adapter |
 | `rtl/gowin/GW_JTAG.sv` | Gowin `GW_JTAG` black-box declaration |
 | `rtl/gowin/gowin_jtag_shim.sv` | Small wrapper exposing `GW_JTAG` signals |
+| `experiments/adapter_probe/gowin_dmi_bscan_tap.sv` | Probe-oriented PULP `dmi_jtag_tap` pin-compatible Gowin BSCAN adapter |
 | `experiments/adapter_probe/pulp_bscan_probe_tangnano9k_top.sv` | Adapter bring-up probe top |
 | `experiments/isolation/pulp_bscan_fixed_tdo_tangnano9k_top.sv` | Direct fixed-pattern TDO isolation probe |
 | `experiments/isolation/pulp_bscan_constant_tdo_tangnano9k_top.sv` | Direct constant-low/high TDO isolation probe |
