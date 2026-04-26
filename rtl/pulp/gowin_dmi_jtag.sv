@@ -110,6 +110,7 @@ module dmi_jtag #(
     logic er1_active;
     logic er2_active;
     logic user_active;
+    logic user_conflict;
     logic dtmcs_user_select;
     logic dmi_user_select;
     logic dtmcs_select;
@@ -122,10 +123,13 @@ module dmi_jtag #(
     assign er1_active = jen_er1 | jidle_er1;
     assign er2_active = jen_er2 | jidle_er2;
     assign user_active = er1_active | er2_active;
+    assign user_conflict = er1_active & er2_active;
     assign dtmcs_user_select =
-        user_active & (er1_active | (dtmcs_selected & ~er2_active));
+        user_active & ~user_conflict &
+        (er1_active | (dtmcs_selected & ~er2_active));
     assign dmi_user_select =
-        user_active & (er2_active | (dmi_selected & ~er1_active));
+        user_active & ~user_conflict &
+        (er2_active | (dmi_selected & ~er1_active));
     assign dtmcs_select = dtmcs_user_select |
                           ((user_shift_q == USER_DTMCS_SHIFT) &
                            (jshift_capture | jupdate));
