@@ -102,6 +102,7 @@ module dmi_jtag #(
     logic dmi_selected;
     logic er1_active;
     logic er2_active;
+    logic user_active;
     logic dtmcs_select;
     logic dmi_select;
 
@@ -110,8 +111,11 @@ module dmi_jtag #(
     assign jtag_update = jupdate | jshift_done;
     assign er1_active = jen_er1 | jidle_er1;
     assign er2_active = jen_er2 | jidle_er2;
-    assign dtmcs_select = er1_active | (dtmcs_selected & ~er2_active);
-    assign dmi_select = er2_active | (dmi_selected & ~er1_active);
+    assign user_active = er1_active | er2_active;
+    assign dtmcs_select =
+        user_active & (er1_active | (dtmcs_selected & ~er2_active));
+    assign dmi_select =
+        user_active & (er2_active | (dmi_selected & ~er1_active));
 
     always_ff @(posedge jtck or negedge jtrst_ni) begin
         if (!jtrst_ni) begin
