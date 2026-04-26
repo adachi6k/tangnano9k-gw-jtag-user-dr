@@ -249,4 +249,8 @@ drscan gowin.fpga 32 0x0000003f
 
 ## License
 
-MIT. See [`LICENSE`](LICENSE).
+Solderpad Hardware License v0.51. See [`LICENSE`](LICENSE).
+
+This matches the license used by upstream PULP `riscv-dbg` and `common_cells`,
+so the Tang Nano 9K bridge can be reused with those projects without introducing
+a different license family.

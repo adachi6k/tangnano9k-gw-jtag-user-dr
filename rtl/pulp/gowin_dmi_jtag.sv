@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: SHL-0.51
 // Copyright (c) 2026 adachi6k
 //
 // Gowin GW_JTAG-backed replacement for PULP riscv-dbg dmi_jtag.
