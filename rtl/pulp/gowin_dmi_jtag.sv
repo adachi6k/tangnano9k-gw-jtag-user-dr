@@ -85,7 +85,7 @@ module dmi_jtag #(
 
     // jreset is Gowin test_logic_reset_o.  On Tang Nano 9K hardware it can be
     // asserted during OpenOCD scans; using it as trst_ni or DMI clear made
-    // DTMCS read back 0, so it is observed but not used as bridge reset.
+    // DTMCS read back 0x00000000, so it is observed but not used as bridge reset.
     gowin_jtag_shim u_jtag (
         .jtck           (jtck),
         .jtdi           (jtdi),
