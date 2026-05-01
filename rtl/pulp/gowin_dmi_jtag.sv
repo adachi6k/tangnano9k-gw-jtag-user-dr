@@ -415,8 +415,8 @@ module dmi_jtag #(
     assign td_o = 1'b0;
     assign tdo_oe_o = 1'b0;
 
-    logic [6:0] unusedcompat;
-    assign unusedcompat = {
+    logic [6:0] unused_compat;
+    assign unused_compat = {
         tck_i,
         tms_i,
         td_i,
