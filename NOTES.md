@@ -1,298 +1,164 @@
-# Tang Nano 9K PULP DMI BSCAN Bring-up
+# Gowin GW_JTAG PULP DMI BSCAN Notes
 
-This note records the Tang Nano 9K `GW_JTAG` USER data register bring-up result.
+This note records the current `GW_JTAG` USER data register bring-up result for
+using Gowin FPGA-native USER JTAG data registers as a PULP `riscv-dbg` DMI
+transport.
 
-## Result
+## Summary
 
-Tang Nano 9K can access user logic through the Gowin internal `GW_JTAG` primitive.
-The verified USER data register paths are:
+Verified boards:
 
-| Item | Value |
-|:-----|:------|
-| Board | Tang Nano 9K |
-| FPGA | GW1NR-LV9QN88PC6/I5 |
-| JTAG IDCODE | `0x1100481b` |
-| JTAG IR length | `8` |
-| Verified USER paths | ER1 / USER1 and ER2 / USER2 |
-| Verified USER IRs | `0x42` and `0x43` |
-| Confirmed raw USER probe DR width | `32` bits |
-| Verified DMIACCESS width | `41` bits (`abits=7`, `data=32`, `op/status=2`) |
+| Board | FPGA family | JTAG IDCODE | USER1 / ER1 | USER2 / ER2 |
+|:------|:------------|:------------|:------------|:------------|
+| Tang Nano 9K | GW1NR-9C | `0x1100481b` | `0x42` | `0x43` |
+| Tang Primer 20K | GW2A-18 | `0x0000081b` | `0x42` | `0x43` |
+| Tang Primer 25K | GW5A-25 | `0x0001281b` | `0x42` | `0x43` |
 
-ER2 / USER2 (`0x43`) was confirmed first. ER1 / USER1 (`0x42`) was then
-retested with the same direct-shift conditions and also worked.
+The important result is that all three tested boards expose the same two USER
+paths through `GW_JTAG`:
 
-This makes a PULP Xilinx `BSCANE2`-style migration plausible: use two Gowin
-native USER DRs instead of creating a soft TAP. The current experimental mapping
-is ER1 / `0x42` for DTMCS and ER2 / `0x43` for DMIACCESS.
+- ER1 / USER1 / IR `0x42`: maps to PULP DTMCS.
+- ER2 / USER2 / IR `0x43`: maps to PULP DMIACCESS.
 
-The similarly named files are split by USER path:
+## Adapter Shape
 
-| Path | USER path |
-|:-----|:----------|
-| `experiments/user_dr/jtag_user_reg_er1_tangnano9k_top.sv` | ER1 / USER1 |
-| `experiments/user_dr/jtag_user_reg_tangnano9k_top.sv` | ER2 / USER2 |
-| `experiments/user_dr/jtag_diag_er1_tangnano9k_top.sv` | ER1 / USER1 diagnostic |
-| `experiments/user_dr/jtag_diag_tangnano9k_top.sv` | ER2 / USER2 diagnostic |
-| `experiments/adapter_probe/gowin_dmi_bscan_tap.sv` | PULP-style BSCAN adapter |
-| `experiments/adapter_probe/pulp_bscan_probe_tangnano9k_top.sv` | PULP-style BSCAN probe |
+The adapter under test is `experiments/adapter_probe/gowin_dmi_bscan_tap.sv`. It keeps the PULP
+module name `dmi_jtag_tap` and maps Gowin USER DR scan signals into the
+PULP-compatible TAP replacement interface.
 
-## Reproduction
+`GW_JTAG` is not a raw external JTAG pin interface. It already provides decoded
+USER-chain signals:
 
-Build and program the ER2 USER DR probe bitstream:
+- `tck_o`
+- `tdi_o`
+- `test_logic_reset_o`
+- `shift_dr_capture_dr_o`
+- `update_dr_o`
+- `enable_er1_o`
+- `enable_er2_o`
+- `tdo_er1_i`
+- `tdo_er2_i`
 
-```bash
-GW_SH=/opt/gowin_edu/IDE/bin/gw_sh make gowin-jtag-probe
-sudo make gowin-jtag-probe-prog
-```
+The adapter treats the first active `shift_dr_capture_dr_o` cycle as capture
+and subsequent active cycles as shift:
 
-Shift `0x0000003f` into the USER DR:
+- `capture_o = jshift_capture & ~jshift_capture_q`
+- `shift_o = jshift_capture & jshift_capture_q`
+- `update_o = jupdate`
+- `dmi_clear_o = test_logic_reset_o`
 
-```bash
-cd scripts
-sudo ./openocd_gowin_jtag_probe.sh led-on
-```
+This preserves PULP-style semantics where `capture_o` and `shift_o` are
+mutually exclusive.
 
-Equivalent OpenOCD operations:
+## Fixed-Pattern Probe
 
-```tcl
-irscan gowin.fpga 0x43
-drscan gowin.fpga 32 0x0000003f
-```
+The fixed-pattern isolation probe reads known values from the two USER paths:
 
-Expected result: all six on-board LEDs are lit.
+| Operation | Expected |
+|:----------|:---------|
+| `IR 0x42`, `DR32` | `00001071` |
+| `IR 0x43`, `DR41` | `00ab2bfaeaf8` in OpenOCD formatting |
 
-The first `drscan` response can be `00000000`. That is expected for the probe
-top because `tdo_er2_i` returns the previous shift-register contents; the LED
-state after the scan is the important observation.
+The portable top is:
 
-Build and program the ER1 USER DR probe bitstream:
+- `experiments/isolation/pulp_bscan_fixed_tdo_portless_top.sv`
 
-```bash
-GW_SH=/opt/gowin_edu/IDE/bin/gw_sh make gowin-jtag-er1-probe
-sudo make gowin-jtag-er1-probe-prog
-```
+Board-specific build scripts:
 
-Shift `0x0000003f` into ER1:
+- `gowin/build_pulp_bscan_fixed_tdo_primer20k.tcl`
+- `gowin/build_pulp_bscan_fixed_tdo_primer25k.tcl`
 
-```bash
-cd scripts
-sudo ./openocd_gowin_jtag_probe.sh led-on-er1
-```
+Nano 9K uses the older LED-capable top:
 
-Equivalent OpenOCD operations:
+- `experiments/isolation/pulp_bscan_fixed_tdo_tangnano9k_top.sv`
+- `gowin/build_pulp_bscan_fixed_tdo.tcl`
 
-```tcl
-irscan gowin.fpga 0x42
-drscan gowin.fpga 32 0x0000003f
-```
+## Capture Timing Detail
 
-Expected result: all six on-board LEDs are lit.
+GW5A-25 showed why the fixed-pattern probe must not rely only on FF initial
+values or `Update-DR` reload.
 
-## Diagnostic observations
+On Primer 25K, a first version of the fixed-pattern probe returned:
 
-The sticky diagnostic top confirmed the following:
+- `IR 0x42`, `DR32`: `ffffffff`
+- `IR 0x43`, `DR41`: `000000000000`
 
-- `scan` alone observes the TAP and JTAG reset/clock behavior.
-- `drscan-ir 0x43 0x0000003f` reaches ER2 and observes shift/update activity.
-- With `tdo_er2_i` tied high in the diagnostic top, OpenOCD reads back
-  `ffffffff`, confirming the ER2 TDO path.
-- With `0x0000003f` shifted in, the diagnostic top observes `tdi_o=1` during
-  `shift_dr_capture_dr_o`, confirming the ER2 TDI path.
-- The ER1 diagnostic top, using the same direct-shift conditions, also observes
-  ER1 shift activity and reads back `ffffffff` with `tdo_er1_i` tied high.
+Constant-TDO testing still showed that IR `0x42` and `0x43` were connected to
+`tdo_er1_i` and `tdo_er2_i`. A signal-to-TDO diagnostic then tied ER1 TDO to
+`jshift_capture` and ER2 TDO to `jtdi`, confirming that:
 
-## Implementation notes
+- `shift_dr_capture_dr_o` is active during the scan.
+- `tdi_o` follows the shifted DR input data.
+- The capture cycle can be visible as the first scanned bit.
 
-The final LED probe intentionally drives LEDs from the shift register directly
-instead of waiting for a separate `update_dr_o`-latched display register. This
-avoids losing the visible result to TAP reset/update timing when OpenOCD exits.
+The fixed-pattern portless probe was corrected to load the pattern on the first
+active `shift_dr_capture_dr_o` cycle and drive the first bit explicitly. After
+that change, Primer 25K reads:
 
-The probes also do not gate shifting with `enable_er1_o` or `enable_er2_o`; the
-observed useful control signal for this minimal test is `shift_dr_capture_dr_o`,
-with OpenOCD selecting ER1 (`0x42`) or ER2 (`0x43`) through IR scan.
+- `IR 0x42`, `DR32`: `00001071`
+- `IR 0x43`, `DR41`: `00ab2bfaeaf8`
 
-## PULP-style BSCAN migration notes
+## Constant-TDO Probe
 
-PULP's Xilinx flow replaces the normal soft `dmi_jtag_tap` with a native-FPGA
-BSCAN implementation. In that flow, separate `BSCANE2` USER chains provide:
+The constant-TDO probe is used to identify USER IRs without depending on shift
+register timing.
 
-| Function | Xilinx/PULP shape | Gowin experiment |
-|:---------|:------------------|:-----------------|
-| DTMCS DR | native USER chain selected by a USER IR | ER1 / USER1, IR `0x42` |
-| DMIACCESS DR | another native USER chain selected by a USER IR | ER2 / USER2, IR `0x43` |
-| TCK/TDI/UPDATE/RESET | native BSCAN outputs | `GW_JTAG` outputs |
-| TDO mux | native BSCAN chain TDO input | `tdo_er1_i` / `tdo_er2_i` |
+Normal polarity:
 
-`experiments/adapter_probe/gowin_dmi_bscan_tap.sv` is written with the same module name and port
-shape as PULP `dmi_jtag_tap`. It remains useful for adapter probes and for
-documenting the attempted BSCANE2-style migration.
+- `tdo_er1_i = 1'b0`
+- `tdo_er2_i = 1'b1`
 
-The hardware-validated integration path is now `rtl/pulp/gowin_dmi_jtag.sv`.
-It replaces PULP `dmi_jtag.sv` as a whole, keeps the same external module port
-shape, reuses PULP `dmi_cdc`, and implements DTMCS/DMIACCESS directly on
-`GW_JTAG` USER chains.
+Expected direct reads:
 
-The main timing caveat is capture/update. `GW_JTAG` exposes
-`shift_dr_capture_dr_o` rather than separate `CAPTURE` and `SHIFT` outputs like
-Xilinx `BSCANE2`, and ER2 DMIACCESS does not reliably provide a
-PULP-compatible `enable_er2_o` / `update_dr_o` sequence. The working full bridge
-therefore preloads DTMCS while ER1 is selected and idle, shifts throughout
-`shift_dr_capture_dr_o`, counts 41 DMIACCESS bits, and treats the end of that
-41-bit USER DR shift as the DMI update point. `test_logic_reset_o` is kept as an
-observed diagnostic signal rather than being wired into the bridge reset path;
-using it as `trst_ni` or DMI clear made DTMCS read back `00000000` in hardware.
+- `IR 0x42`: all-zero
+- `IR 0x43`: all-one
 
-The probe readback shifters are intentionally not gated by `enable_er1_o` or
-`enable_er2_o`. This mirrors the earlier minimal LED probes, where the robust
-condition was the USER IR selected by OpenOCD plus `shift_dr_capture_dr_o`.
-The LEDs still latch the derived DTMCS/DMI select observations so enable behavior
-can be inspected independently from the TDO readback path.
+Inverted polarity swaps those results.
 
-Probe expectations:
+Relevant tops:
 
-| Command | IR/DR operation | Expected readback |
-|:--------|:----------------|:------------------|
-| `sudo make openocd-bscan-dtmcs` | `irscan 0x42`, `drscan 32 0` | `00001071` |
-| `sudo make openocd-bscan-dmi` | `irscan 0x43`, `drscan 41 0` | `0ab2bfaeaf8` |
+- `experiments/isolation/pulp_bscan_constant_tdo_tangnano9k_top.sv`
+- `experiments/isolation/pulp_bscan_constant_tdo_inverted_tangnano9k_top.sv`
+- `experiments/isolation/pulp_bscan_constant_tdo_primer_top.sv`
+- `experiments/isolation/pulp_bscan_constant_tdo_primer_inverted_top.sv`
 
-During bring-up, a standalone adapter probe using direct shift behavior passed
-on hardware and confirmed the ER1/ER2 USER DR mapping:
+## OpenOCD / FTDI Notes
 
-| Command | Observed readback |
-|:--------|:------------------|
-| `sudo make openocd-bscan-dtmcs` | `00001071` |
-| `sudo make openocd-bscan-dmi` | `0ab2bfaeaf8` |
+The shared helper is:
 
-If the PULP-style probe reads back `ffffffff`, use
-`pulp_bscan_fixed_tdo_tangnano9k_top` to bypass the adapter and drive
-`tdo_er1_i` / `tdo_er2_i` directly from known shift registers:
+- `scripts/openocd_gowin_jtag_probe.sh`
+- `scripts/openocd_gowin_jtag_probe.cfg`
 
-| Command | Purpose | Expected readback |
-|:--------|:--------|:------------------|
-| `sudo make openocd-bscan-fixed-dtmcs` | Direct ER1 fixed-pattern TDO | `00001071` |
-| `sudo make openocd-bscan-fixed-dmi` | Direct ER2 fixed-pattern TDO | `0ab2bfaeaf8` |
+The default direct FTDI setup is:
 
-After avoiding pattern reload from `test_logic_reset_o`, this fixed-pattern
-probe passes on hardware:
+- VID/PID: `0x0403:0x6010`
+- channel: `0`
+- `ftdi layout_init 0x0008 0x001b`
+- adapter speed: `1000 kHz`
+- JTAG IR length: `8`
 
-| Command | Observed readback |
-|:--------|:------------------|
-| `sudo make openocd-bscan-fixed-dtmcs` | `00001071` |
-| `sudo make openocd-bscan-fixed-dmi` | `0ab2bfaeaf8` |
+This setup works for the verified SIPEED FTDI debug interfaces. The old layout
+`0x0808 0x0a1b` worked in some Nano/20K cases but produced all-ones / IR
+capture errors with the tested Primer 25K, so it is no longer the default.
 
-This confirms the raw Gowin USER TDO paths are healthy. Any remaining failure in
-`pulp_bscan_probe_tangnano9k_top` belongs in the adapter timing/select layer.
-
-If the fixed-pattern probe still reads `ffffffff`, run the constant TDO probe:
-
-| Command | Purpose | Expected readback |
-|:--------|:--------|:------------------|
-| `sudo make openocd-bscan-constant-er1` | ER1 TDO tied low | `00000000` |
-| `sudo make openocd-bscan-constant-er2` | ER2 TDO tied high | `ffffffff` |
-
-This is the minimal check that the programmed top is controlling the USER TDO
-inputs.
-
-The constant TDO probe passing while a pattern probe reads `ffffffff` points at
-probe-side reset/loading behavior rather than the raw TDO path. In particular,
-do not reload ER1 pattern registers from `test_logic_reset_o` during scans: the
-DTMCS test pattern has LSB `1`, so repeated reset reloads appear as all-ones
-TDO.
-
-The first adapter-probe pass used direct-shift bring-up semantics to prove the
-ER1/ER2 USER DR mapping. The later real PULP `dmi_jtag` / `dm_top` connection
-showed that a TAP-only adapter was not sufficient on Tang Nano 9K, so the
-working integration moved the Gowin-specific behavior into a full `dmi_jtag`
-replacement.
-
-## Verified PULP Debug Module integration
-
-The following stack was verified on hardware through the LM RV32 integration:
-
-| Component | Version / value |
-|:----------|:----------------|
-| Board | Tang Nano 9K |
-| FPGA | GW1NR-LV9QN88PC6/I5 |
-| JTAG adapter | SIPEED JTAG Debugger |
-| PULP riscv-dbg | `v0.10.0` / `1cd764a82d7d49c5e8679fbb70b540b2e274bab9` |
-| PULP common_cells | `v1.39.0-5-gb74f0ad` / `b74f0ad63600762ef101cf1d3365d19dfbb3123b` |
-| Debug wrapper | `dm_obi_top` + `dmi_cdc` + `gowin_dmi_jtag.sv` |
-| OpenOCD | `0.12.0+dev-geb01c63` |
-
-Confirmed operations:
-
-| Operation | Result |
-|:----------|:-------|
-| Gowin TAP scan | IDCODE `0x1100481b`, IR length `8` |
-| DTMCS read, ER1 / IR `0x42` | `00001071` |
-| DMIACCESS NOP pattern loop, ER2 / IR `0x43` | second scan readback `00ab2bfaeaf8` |
-| Write `dmcontrol.dmactive=1` | `addr=0x10 data=0x00000001 status=0` |
-| Read `dmstatus` | `addr=0x11 data=0x000c0c82 status=0` |
-| OpenOCD examine | `Target successfully examined`, `XLEN=32`, `misa=0x40001100` |
-| OpenOCD halt smoke test | halted by debug-request, `pc=0x00000400` |
-
-## Useful commands
-
-Detect the TAP:
+Useful commands:
 
 ```bash
-cd scripts
-sudo ./openocd_gowin_jtag_probe.sh scan
+scripts/openocd_gowin_jtag_probe.sh scan
+scripts/openocd_gowin_jtag_probe.sh bscan-fixed-dtmcs
+scripts/openocd_gowin_jtag_probe.sh bscan-fixed-dmi
+scripts/openocd_gowin_jtag_probe.sh bscan-constant-er1
+scripts/openocd_gowin_jtag_probe.sh bscan-constant-er2
+scripts/openocd_gowin_jtag_probe.sh sweep-constant-tdo-ir
 ```
 
-Shift a custom 32-bit value through ER2:
+## Current Validation Boundary
 
-```bash
-cd scripts
-sudo ./openocd_gowin_jtag_probe.sh drscan 0x00000015
-```
+The raw `GW_JTAG` USER paths and fixed-pattern probes are verified. The next
+validation step is to connect `gowin_dmi_bscan_tap.sv` to real PULP
+`dmi_jtag` / `dm_top` logic and verify an actual debug-module transaction:
 
-Shift `0x0000003f` through ER1:
-
-```bash
-cd scripts
-sudo ./openocd_gowin_jtag_probe.sh led-on-er1
-```
-
-Run the sticky diagnostic bitstream:
-
-```bash
-GW_SH=/opt/gowin_edu/IDE/bin/gw_sh make gowin-jtag-diag
-sudo make gowin-jtag-diag-prog
-```
-
-Run the ER1 sticky diagnostic bitstream:
-
-```bash
-GW_SH=/opt/gowin_edu/IDE/bin/gw_sh make gowin-jtag-er1-diag
-sudo make gowin-jtag-er1-diag-prog
-cd scripts
-sudo ./openocd_gowin_jtag_probe.sh drscan-ir 0x42 0x0000003f
-```
-
-Run the PULP-style BSCAN probe:
-
-```bash
-GW_SH=/opt/gowin_edu/IDE/bin/gw_sh make gowin-pulp-bscan-probe
-sudo make gowin-pulp-bscan-probe-prog
-sudo make openocd-bscan-dtmcs
-sudo make openocd-bscan-dmi
-```
-
-Run the fixed-pattern TDO isolation probe:
-
-```bash
-GW_SH=/opt/gowin_edu/IDE/bin/gw_sh make gowin-pulp-bscan-fixed-tdo
-sudo make gowin-pulp-bscan-fixed-tdo-prog
-sudo make openocd-bscan-fixed-dtmcs
-sudo make openocd-bscan-fixed-dmi
-```
-
-Run the constant TDO isolation probe:
-
-```bash
-GW_SH=/opt/gowin_edu/IDE/bin/gw_sh make gowin-pulp-bscan-constant-tdo
-sudo make gowin-pulp-bscan-constant-tdo-prog
-sudo make openocd-bscan-constant-er1
-sudo make openocd-bscan-constant-er2
-```
+1. Read DTMCS.
+2. Read/write DMIACCESS.
+3. Write `dmcontrol.dmactive`.
+4. Read `dmstatus`.

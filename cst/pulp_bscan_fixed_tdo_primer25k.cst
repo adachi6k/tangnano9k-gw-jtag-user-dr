@@ -1,0 +1,6 @@
+// Tang Primer 25K probe outputs.
+IO_LOC "probe_o[0]" C10;
+IO_PORT "probe_o[0]" PULL_MODE=NONE DRIVE=8 BANK_VCCIO=3.3;
+
+IO_LOC "probe_o[1]" C11;
+IO_PORT "probe_o[1]" PULL_MODE=NONE DRIVE=8 BANK_VCCIO=3.3;
