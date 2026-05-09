@@ -1,3 +1,10 @@
+// Probe-oriented Gowin GW_JTAG adapter with the same port shape as PULP
+// dmi_jtag_tap.
+//
+// For a real Tang Nano 9K PULP Debug Module integration, prefer
+// gowin_dmi_jtag.sv. Hardware validation showed that ER2 / DMIACCESS update
+// timing cannot be represented reliably as a pure BSCANE2-style TAP adapter.
+
 module dmi_jtag_tap #(
     parameter int unsigned IrLength = 8,
     parameter logic [31:0] IdcodeValue = 32'h1100481b
