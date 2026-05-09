@@ -3,7 +3,7 @@
 Gowin `GW_JTAG` adapter experiments for using FPGA-native USER JTAG data
 registers as a PULP `riscv-dbg` DMI transport.
 
-The main RTL artifact is `rtl/pulp/gowin_dmi_bscan_tap.sv`: a module named
+The main RTL artifact is `experiments/adapter_probe/gowin_dmi_bscan_tap.sv`: a module named
 `dmi_jtag_tap` with the same port shape as PULP's JTAG TAP replacement layer.
 It maps Gowin USER data registers to the two DMI JTAG registers used by PULP:
 
@@ -88,7 +88,7 @@ The next system-level validation step is integration with real PULP
 
 | Path | Purpose |
 |:-----|:--------|
-| `rtl/pulp/gowin_dmi_bscan_tap.sv` | PULP `dmi_jtag_tap` pin-compatible Gowin BSCAN adapter |
+| `experiments/adapter_probe/gowin_dmi_bscan_tap.sv` | PULP `dmi_jtag_tap` pin-compatible Gowin BSCAN adapter |
 | `rtl/gowin/GW_JTAG.sv` | Gowin `GW_JTAG` black-box declaration |
 | `rtl/gowin/gowin_jtag_shim.sv` | Small wrapper exposing `GW_JTAG` signals |
 | `experiments/adapter_probe/pulp_bscan_probe_tangnano9k_top.sv` | Nano 9K adapter bring-up probe |
@@ -175,4 +175,4 @@ scripts/openocd_gowin_jtag_probe.sh sweep-constant-tdo-ir
 
 ## License
 
-MIT. See [`LICENSE`](LICENSE).
+Solderpad Hardware License v0.51 (`SHL-0.51`). See [`LICENSE`](LICENSE).

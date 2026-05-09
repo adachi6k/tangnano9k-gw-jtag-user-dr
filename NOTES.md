@@ -22,7 +22,7 @@ paths through `GW_JTAG`:
 
 ## Adapter Shape
 
-The adapter under test is `rtl/pulp/gowin_dmi_bscan_tap.sv`. It keeps the PULP
+The adapter under test is `experiments/adapter_probe/gowin_dmi_bscan_tap.sv`. It keeps the PULP
 module name `dmi_jtag_tap` and maps Gowin USER DR scan signals into the
 PULP-compatible TAP replacement interface.
 
