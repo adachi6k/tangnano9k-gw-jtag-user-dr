@@ -1,0 +1,6 @@
+// Tang Primer 20K probe outputs.
+IO_LOC "probe_o[0]" N16;
+IO_PORT "probe_o[0]" IO_TYPE=LVCMOS33;
+
+IO_LOC "probe_o[1]" N14;
+IO_PORT "probe_o[1]" IO_TYPE=LVCMOS33;

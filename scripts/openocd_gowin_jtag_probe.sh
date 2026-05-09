@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# openocd_gowin_jtag_probe.sh — OpenOCD helper for Tang Nano 9K GW_JTAG USER
-# DR probing.
+# openocd_gowin_jtag_probe.sh — OpenOCD helper for Gowin GW_JTAG USER DR
+# probing.
 #
 # Usage:
 #   ./scripts/openocd_gowin_jtag_probe.sh scan
@@ -10,6 +10,8 @@
 #   ./scripts/openocd_gowin_jtag_probe.sh drscan 0x0000003f
 #   ./scripts/openocd_gowin_jtag_probe.sh drscan-ir 0x43 0x0000003f
 #   ./scripts/openocd_gowin_jtag_probe.sh drscan-bits-ir 0x42 32 0x0
+#   ./scripts/openocd_gowin_jtag_probe.sh sweep-user-ir
+#   ./scripts/openocd_gowin_jtag_probe.sh sweep-constant-tdo-ir
 #   ./scripts/openocd_gowin_jtag_probe.sh bscan-dtmcs
 #   ./scripts/openocd_gowin_jtag_probe.sh bscan-dmi
 #   ./scripts/openocd_gowin_jtag_probe.sh bscan-fixed-dtmcs
@@ -30,6 +32,8 @@ Usage:
   openocd_gowin_jtag_probe.sh drscan <32-bit-value>
   openocd_gowin_jtag_probe.sh drscan-ir <8-bit-ir> <32-bit-value>
   openocd_gowin_jtag_probe.sh drscan-bits-ir <8-bit-ir> <bit-count> <value>
+  openocd_gowin_jtag_probe.sh sweep-user-ir
+  openocd_gowin_jtag_probe.sh sweep-constant-tdo-ir
   openocd_gowin_jtag_probe.sh bscan-dtmcs
   openocd_gowin_jtag_probe.sh bscan-dmi
   openocd_gowin_jtag_probe.sh bscan-fixed-dtmcs
@@ -43,6 +47,10 @@ Environment overrides:
   OPENOCD_IFACE_CFG=/path/to/interface.cfg
   OPENOCD_ADAPTER_SPEED_KHZ=1000
   OPENOCD_EXPECTED_IDCODE=0x12345678
+  OPENOCD_FTDI_DEVICE_DESC="USB Debugger"
+  OPENOCD_FTDI_VID_PID="0x0403 0x6010"
+  OPENOCD_FTDI_CHANNEL=0
+  OPENOCD_FTDI_LAYOUT_INIT="0x0008 0x001b"
 
 Notes:
   - Run with sudo if OpenOCD cannot open the FTDI device in WSL.
@@ -146,6 +154,22 @@ case "${mode}" in
             -c "scan_chain"
             -c "irscan gowin.fpga $1"
             -c "drscan gowin.fpga $2 $3"
+            -c "exit"
+        )
+        ;;
+    sweep-user-ir)
+        openocd_args+=(
+            -c "init"
+            -c "scan_chain"
+            -c "for {set ir 0} {\$ir < 256} {incr ir} { set irhex [format 0x%02x \$ir]; irscan gowin.fpga \$irhex; set dr32 [drscan gowin.fpga 32 0x00000000]; puts \"IR \$irhex DR32 \$dr32\" }"
+            -c "exit"
+        )
+        ;;
+    sweep-constant-tdo-ir)
+        openocd_args+=(
+            -c "init"
+            -c "scan_chain"
+            -c "for {set ir 0} {\$ir < 256} {incr ir} { set irhex [format 0x%02x \$ir]; irscan gowin.fpga \$irhex; set dr1 [drscan gowin.fpga 1 0x0]; irscan gowin.fpga \$irhex; set dr8 [drscan gowin.fpga 8 0x00]; irscan gowin.fpga \$irhex; set dr16 [drscan gowin.fpga 16 0x0000]; irscan gowin.fpga \$irhex; set dr32 [drscan gowin.fpga 32 0x00000000]; irscan gowin.fpga \$irhex; set dr41 [drscan gowin.fpga 41 0x00000000000]; puts \"IR \$irhex DR1 \$dr1 DR8 \$dr8 DR16 \$dr16 DR32 \$dr32 DR41 \$dr41\" }"
             -c "exit"
         )
         ;;

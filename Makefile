@@ -1,4 +1,4 @@
-# Tang Nano 9K PULP DMI BSCAN experiments
+# Gowin GW_JTAG PULP DMI BSCAN experiments
 
 .PHONY: gowin-jtag-probe gowin-jtag-probe-prog
 .PHONY: gowin-jtag-diag gowin-jtag-diag-prog
@@ -7,6 +7,11 @@
 .PHONY: gowin-pulp-bscan-probe gowin-pulp-bscan-probe-prog
 .PHONY: gowin-pulp-bscan-fixed-tdo gowin-pulp-bscan-fixed-tdo-prog
 .PHONY: gowin-pulp-bscan-constant-tdo gowin-pulp-bscan-constant-tdo-prog
+.PHONY: gowin-pulp-bscan-constant-tdo-inverted
+.PHONY: gowin-primer20k-fixed-tdo gowin-primer25k-fixed-tdo
+.PHONY: gowin-primer20k-constant-tdo gowin-primer25k-constant-tdo
+.PHONY: gowin-primer20k-constant-tdo-inverted gowin-primer25k-constant-tdo-inverted
+.PHONY: gowin-primer25k-signal-tdo
 .PHONY: openocd-scan openocd-led-on openocd-led-on-er1 openocd-led-on-er2
 .PHONY: openocd-bscan-dtmcs openocd-bscan-dmi openocd-bscan-fixed-dtmcs
 .PHONY: openocd-bscan-fixed-dmi openocd-bscan-constant-er1
@@ -53,6 +58,30 @@ gowin-pulp-bscan-constant-tdo:
 
 gowin-pulp-bscan-constant-tdo-prog:
 	scripts/prog_gowineda_pulp_bscan_constant_tdo.sh
+
+gowin-pulp-bscan-constant-tdo-inverted:
+	cd gowin && QT_QPA_PLATFORM=offscreen "$${GW_SH:-gw_sh}" build_pulp_bscan_constant_tdo_inverted.tcl
+
+gowin-primer20k-fixed-tdo:
+	cd gowin && QT_QPA_PLATFORM=offscreen "$${GW_SH:-gw_sh}" build_pulp_bscan_fixed_tdo_primer20k.tcl
+
+gowin-primer25k-fixed-tdo:
+	cd gowin && QT_QPA_PLATFORM=offscreen "$${GW_SH:-gw_sh}" build_pulp_bscan_fixed_tdo_primer25k.tcl
+
+gowin-primer20k-constant-tdo:
+	cd gowin && QT_QPA_PLATFORM=offscreen "$${GW_SH:-gw_sh}" build_pulp_bscan_constant_tdo_primer20k.tcl
+
+gowin-primer25k-constant-tdo:
+	cd gowin && QT_QPA_PLATFORM=offscreen "$${GW_SH:-gw_sh}" build_pulp_bscan_constant_tdo_primer25k.tcl
+
+gowin-primer20k-constant-tdo-inverted:
+	cd gowin && QT_QPA_PLATFORM=offscreen "$${GW_SH:-gw_sh}" build_pulp_bscan_constant_tdo_primer20k_inverted.tcl
+
+gowin-primer25k-constant-tdo-inverted:
+	cd gowin && QT_QPA_PLATFORM=offscreen "$${GW_SH:-gw_sh}" build_pulp_bscan_constant_tdo_primer25k_inverted.tcl
+
+gowin-primer25k-signal-tdo:
+	cd gowin && QT_QPA_PLATFORM=offscreen "$${GW_SH:-gw_sh}" build_pulp_bscan_signal_tdo_primer25k.tcl
 
 openocd-scan:
 	scripts/openocd_gowin_jtag_probe.sh scan
